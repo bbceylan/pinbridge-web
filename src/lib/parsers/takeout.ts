@@ -75,11 +75,11 @@ export async function parseTakeoutCsv(
     const places: ParsedPlace[] = [];
     const errors: ImportError[] = [];
 
-    Papa.parse(content, {
+    Papa.parse<Record<string, string>>(content, {
       header: true,
       skipEmptyLines: true,
       complete: (results) => {
-        results.data.forEach((row: Record<string, string>, index: number) => {
+        results.data.forEach((row, index) => {
           try {
             const place = parseTakeoutRow(row, listName);
             if (place) {
@@ -96,7 +96,7 @@ export async function parseTakeoutCsv(
 
         resolve({ places, errors });
       },
-      error: (error) => {
+      error: (error: Error) => {
         errors.push({ reason: `CSV parse error: ${error.message}` });
         resolve({ places, errors });
       },

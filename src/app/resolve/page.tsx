@@ -83,7 +83,7 @@ export default function ResolvePage() {
     );
   }
 
-  if (total === 0 || currentIndex >= total) {
+  if (total === 0 || currentIndex >= total || !currentPlace) {
     return (
       <div className="space-y-6 max-w-2xl mx-auto">
         <div className="flex items-center gap-4">
@@ -154,7 +154,11 @@ export default function ResolvePage() {
           {/* Look up buttons */}
           <div className="grid grid-cols-2 gap-3">
             <a
-              href={generateGoogleMapsUrl({ ...currentPlace, latitude: undefined, longitude: undefined })}
+              href={generateGoogleMapsUrl({
+                ...currentPlace,
+                latitude: undefined,
+                longitude: undefined,
+              } as Place)}
               target="_blank"
               rel="noopener noreferrer"
             >
@@ -164,7 +168,11 @@ export default function ResolvePage() {
               </Button>
             </a>
             <a
-              href={generateAppleMapsUrl({ ...currentPlace, latitude: undefined, longitude: undefined })}
+              href={generateAppleMapsUrl({
+                ...currentPlace,
+                latitude: undefined,
+                longitude: undefined,
+              } as Place)}
               target="_blank"
               rel="noopener noreferrer"
             >

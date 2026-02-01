@@ -132,10 +132,11 @@ export const useTransferPacksStore = create<TransferPacksState>((set, get) => ({
   },
 
   getNextPendingItem: async (packId) => {
-    return db.transferPackItems
+    const item = await db.transferPackItems
       .where('[packId+status]')
       .equals([packId, 'pending'])
-      .first() || null;
+      .first();
+    return item ?? null;
   },
 
   getItemWithPlace: async (itemId) => {

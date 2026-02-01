@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Upload, Link as LinkIcon, FileSpreadsheet, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
@@ -13,8 +13,6 @@ import type { ImportResult, ParsedPlace } from '@/types';
 
 export default function ImportPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const mode = searchParams.get('mode');
 
   const [isImporting, setIsImporting] = useState(false);
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
@@ -50,7 +48,7 @@ export default function ImportPage() {
           duplicateCandidatesCount: 0,
         };
 
-        for (const [collectionName, collectionPlaces] of collectionMap) {
+        for (const [collectionName, collectionPlaces] of Array.from(collectionMap.entries())) {
           const result = await importPlaces(collectionPlaces, collectionName);
           totalResult.importedCount += result.importedCount;
           totalResult.skippedCount += result.skippedCount;
