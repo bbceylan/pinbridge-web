@@ -8,55 +8,53 @@ PinBridge Web is a PWA that lets you:
 - Import Google Takeout "Saved" files
 - Build a canonical place library with deduplication, tagging, and collections
 - Create "Transfer Packs" to batch-open places in your target map app
-- Export to CSV, link lists, and more
+- Export to CSV for backup
 
 **Key principle:** Migration + backup, not automatic sync. You'll still tap "Save" in the target app.
 
-## Features
+## Current Status
 
-### Import
-- Google Takeout ZIP or CSV files
-- Paste Apple Maps / Google Maps links
-- Import CSV (PinBridge format)
+### Working Features
+- **Import:** Google Takeout ZIP, CSV files, paste Apple/Google Maps links
+- **Library:** View, search, filter places with missing coordinates indicator
+- **Collections:** Organize places into named groups
+- **Place Detail:** View/edit place info, open in Apple/Google Maps
+- **Transfer Packs:** Create packs, guided open-and-save workflow with progress tracking
+- **Export:** CSV export with collection metadata
+- **Coordinate Resolution:** Manual batch coordinate fixing
+- **Settings:** View stats, clear all data
 
-### Library Management
-- Canonical place records with title, address, coordinates, notes, tags
-- Collections (list equivalents)
-- Duplicate detection and merge tools
-- Manual coordinate resolution
-
-### Transfer Packs
-- Guided "open and save" workflow
-- Progress tracking with resume support
-- Works across devices via shareable links
-
-### Export
-- CSV (round-trippable)
+### Planned Features
 - Link list pages with QR codes
-- KML/GeoJSON/GPX (planned)
+- KML/GeoJSON/GPX export
+- Cross-device sync via shareable links
+- PWA offline support improvements
 
 ## Tech Stack
 
 - **Framework:** Next.js 14 (App Router)
-- **UI:** React + Tailwind CSS + shadcn/ui
+- **UI:** React 18 + Tailwind CSS + shadcn/ui
 - **Storage:** IndexedDB (via Dexie.js)
-- **State:** Zustand
+- **State:** Zustand + Dexie React Hooks (live queries)
 - **Parsing:** Papa Parse (CSV), JSZip (Takeout)
 
 ## Getting Started
 
 ```bash
-# Install dependencies
-bun install
+# Install dependencies (npm or bun)
+npm install
 
 # Run development server
-bun dev
+npm run dev
 
 # Build for production
-bun build
+npm run build
 
-# Run production build
-bun start
+# Type check
+npm run type-check
+
+# Lint
+npm run lint
 ```
 
 ## Project Structure
@@ -65,48 +63,45 @@ bun start
 src/
 ├── app/                    # Next.js App Router pages
 │   ├── page.tsx           # Library (home)
-│   ├── import/
-│   ├── collections/
-│   ├── place/
-│   ├── resolve/
-│   ├── transfer-packs/
-│   ├── export/
-│   └── settings/
+│   ├── import/            # Import hub
+│   ├── export/            # Export options
+│   ├── collections/[id]/  # Collection detail
+│   ├── place/[id]/        # Place detail
+│   ├── resolve/           # Batch coordinate resolver
+│   ├── transfer-packs/    # Transfer pack list, create, run
+│   └── settings/          # Settings & privacy
 ├── components/
 │   ├── ui/                # shadcn/ui components
-│   ├── library/
-│   ├── import/
-│   ├── transfer/
-│   └── shared/
+│   └── shared/            # App shell, shared components
 ├── lib/
 │   ├── db/                # Dexie database schema
-│   ├── parsers/           # Takeout, CSV, URL parsers
-│   ├── links/             # Apple/Google Maps link generation
-│   └── utils/
-├── stores/                # Zustand stores
-├── types/                 # TypeScript types
-└── workers/               # Web Workers for heavy parsing
+│   ├── parsers/           # Takeout, CSV parsers
+│   ├── links/             # Apple/Google Maps link generation/parsing
+│   └── utils/             # Utilities (cn, generateId, normalize, etc.)
+├── stores/                # Zustand stores (places, transfer-packs)
+└── types/                 # TypeScript interfaces
 ```
 
 ## Routes
 
 | Route | Purpose |
 |-------|---------|
-| `/` | Library (all places) |
-| `/import` | Import hub |
+| `/` | Library (all places, search, filters) |
+| `/import` | Import hub (Takeout, CSV, paste link) |
+| `/export` | Export to CSV |
 | `/collections/:id` | Collection detail |
-| `/place/:id` | Place detail |
+| `/place/:id` | Place detail with open-in-app links |
 | `/resolve` | Batch coordinate resolver |
 | `/transfer-packs` | Transfer packs list |
-| `/transfer-packs/new` | Create transfer pack |
-| `/transfer-packs/:id/run` | Run transfer pack |
-| `/export` | Export options |
-| `/settings` | Settings & privacy |
+| `/transfer-packs/new` | Create transfer pack wizard |
+| `/transfer-packs/:id/run` | Run transfer pack workflow |
+| `/settings` | Data management & privacy |
 
 ## Data Privacy
 
-- **Local-first:** All data stored in browser IndexedDB by default
+- **Local-first:** All data stored in browser IndexedDB
 - **No accounts required** for core functionality
+- **No data sent to servers** - everything stays on your device
 - **Clear deletion controls** in settings
 
 ## License

@@ -55,7 +55,8 @@ function PackCard({ pack }: { pack: TransferPack }) {
 
   useEffect(() => {
     getPackProgress(pack.id).then(setProgress);
-  }, [pack.id, getPackProgress]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pack.id]);
 
   const handleDelete = async (e: React.MouseEvent) => {
     e.preventDefault();
