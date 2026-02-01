@@ -6,6 +6,7 @@ import type {
   TransferPack,
   TransferPackItem,
   ImportRun,
+  LinkList,
 } from '@/types';
 
 export class PinBridgeDB extends Dexie {
@@ -15,6 +16,7 @@ export class PinBridgeDB extends Dexie {
   transferPacks!: Table<TransferPack, string>;
   transferPackItems!: Table<TransferPackItem, string>;
   importRuns!: Table<ImportRun, string>;
+  linkLists!: Table<LinkList, string>;
 
   constructor() {
     super('pinbridge');
@@ -27,6 +29,18 @@ export class PinBridgeDB extends Dexie {
       transferPacks: 'id, name, target, createdAt',
       transferPackItems: 'id, packId, placeId, status, [packId+status]',
       importRuns: 'id, type, createdAt',
+    });
+
+    // Version 2: Add LinkList table
+    this.version(2).stores({
+      places:
+        'id, title, address, normalizedTitle, normalizedAddress, source, createdAt, updatedAt, [normalizedTitle+normalizedAddress]',
+      collections: 'id, name, createdAt',
+      placeCollections: 'id, placeId, collectionId, [placeId+collectionId]',
+      transferPacks: 'id, name, target, createdAt',
+      transferPackItems: 'id, packId, placeId, status, [packId+status]',
+      importRuns: 'id, type, createdAt',
+      linkLists: 'id, title, createdAt, isPublic, updatedAt',
     });
   }
 }
@@ -72,4 +86,22 @@ export async function getCollectionsForPlace(placeId: string): Promise<Collectio
     .toArray();
   const collectionIds = memberships.map((m) => m.collectionId);
   return db.collections.where('id').anyOf(collectionIds).toArray();
+}
+
+export async function getLinkListCount(): Promise<number> {
+  return db.linkLists.count();
+}
+
+export async function getPlacesInLinkList(linkListId: string): Promise<Place[]> {
+  const linkList = await db.linkLists.get(linkListId);
+  if (!linkList) return [];
+  
+  return db.places.where('id').anyOf(linkList.placeIds).toArray();
+}
+
+export async function getCollectionsInLinkList(linkListId: string): Promise<Collection[]> {
+  const linkList = await db.linkLists.get(linkListId);
+  if (!linkList) return [];
+  
+  return db.collections.where('id').anyOf(linkList.collectionIds).toArray();
 }

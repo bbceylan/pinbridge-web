@@ -90,3 +90,15 @@ export interface ParsedPlace {
   sourceUrl?: string;
   listName?: string; // For Takeout imports
 }
+
+export interface LinkList {
+  id: string;
+  title: string;
+  description?: string;
+  placeIds: string[];
+  collectionIds: string[];
+  createdAt: Date;
+  updatedAt: Date;
+  expiresAt?: Date;
+  isPublic: boolean;
+}
