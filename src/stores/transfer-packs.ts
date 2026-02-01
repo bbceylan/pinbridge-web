@@ -26,6 +26,12 @@ interface TransferPacksState {
   deletePack: (id: string) => Promise<void>;
   renamePack: (id: string, name: string) => Promise<void>;
   getPackItems: (packId: string) => Promise<TransferPackItem[]>;
+  /**
+   * @deprecated Use reactive queries instead of imperative progress fetching.
+   * Consider using useLiveQuery(() => db.transferPackItems.where('packId').equals(packId).toArray())
+   * and calculating progress with useMemo for better performance and consistency.
+   * This method will be removed in a future version.
+   */
   getPackProgress: (packId: string) => Promise<{ done: number; total: number }>;
   updateItemStatus: (
     itemId: string,
@@ -106,6 +112,12 @@ export const useTransferPacksStore = create<TransferPacksState>((set, get) => ({
     return db.transferPackItems.where('packId').equals(packId).toArray();
   },
 
+  /**
+   * @deprecated Use reactive queries instead of imperative progress fetching.
+   * Consider using useLiveQuery(() => db.transferPackItems.where('packId').equals(packId).toArray())
+   * and calculating progress with useMemo for better performance and consistency.
+   * This method will be removed in a future version.
+   */
   getPackProgress: async (packId) => {
     const items = await db.transferPackItems.where('packId').equals(packId).toArray();
     const done = items.filter(
