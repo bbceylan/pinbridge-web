@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useMemo } from 'react';
 import Link from 'next/link';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/lib/db';
@@ -50,13 +50,22 @@ export default function TransferPacksPage() {
 }
 
 function PackCard({ pack }: { pack: TransferPack }) {
-  const [progress, setProgress] = useState({ done: 0, total: 0 });
-  const { getPackProgress, deletePack } = useTransferPacksStore();
+  // Use reactive query for transfer pack items instead of imperative useEffect
+  const items = useLiveQuery(
+    () => db.transferPackItems.where('packId').equals(pack.id).toArray(),
+    [pack.id]
+  );
+  
+  // Calculate progress from live query results
+  const progress = useMemo(() => {
+    if (!items) return { done: 0, total: 0 };
+    const done = items.filter(
+      (item) => item.status === 'done' || item.status === 'skipped'
+    ).length;
+    return { done, total: items.length };
+  }, [items]);
 
-  useEffect(() => {
-    getPackProgress(pack.id).then(setProgress);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pack.id]);
+  const { deletePack } = useTransferPacksStore();
 
   const handleDelete = async (e: React.MouseEvent) => {
     e.preventDefault();
