@@ -1,5 +1,6 @@
 import { db } from '@/lib/db';
 import { generateId } from '@/lib/utils';
+import { linkListCache, cacheKeys } from './cache';
 import type { LinkList, Place, Collection } from '@/types';
 
 export interface LinkListCreationData {
@@ -53,12 +54,28 @@ class LinkListServiceImpl implements LinkListService {
   }
   
   async getLinkList(id: string): Promise<LinkList | null> {
+    // Check cache first
+    const cached = linkListCache.getCachedLinkList(id);
+    if (cached) {
+      return cached;
+    }
+    
     const linkList = await db.linkLists.get(id);
-    return linkList ?? null;
+    const result = linkList ?? null;
+    
+    // Cache the result if found
+    if (result) {
+      linkListCache.cacheLinkList(id, result);
+    }
+    
+    return result;
   }
   
   async deleteLinkList(id: string): Promise<void> {
     await db.linkLists.delete(id);
+    
+    // Clear from cache
+    linkListCache.invalidateLinkList(id);
   }
   
   async getUserLinkLists(): Promise<LinkList[]> {
@@ -87,7 +104,27 @@ class LinkListServiceImpl implements LinkListService {
     const linkList = await this.getLinkList(linkListId);
     if (!linkList) return [];
     
-    return db.places.where('id').anyOf(linkList.placeIds).toArray();
+    // Check cache for places
+    const { cached, missing } = linkListCache.getCachedPlaces(linkList.placeIds);
+    
+    // If we have all places cached, return them
+    if (missing.length === 0) {
+      return cached;
+    }
+    
+    // Fetch missing places from database
+    const missingPlaces = await db.places.where('id').anyOf(missing).toArray();
+    
+    // Cache the newly fetched places
+    linkListCache.cachePlaces(missingPlaces);
+    
+    // Combine cached and newly fetched places
+    const allPlaces = [...cached, ...missingPlaces];
+    
+    // Sort by the original order in placeIds
+    return linkList.placeIds
+      .map(id => allPlaces.find(place => place.id === id))
+      .filter((place): place is Place => place !== undefined);
   }
   
   // Helper method to get collections for a link list
@@ -99,10 +136,13 @@ class LinkListServiceImpl implements LinkListService {
   }
   
   // Handle cascade updates when places are deleted
-  async handlePlaceDeletion(placeId: string): Promise<void> {
+  async handlePlaceDeletion(placeId: string): Promise<{ updatedLinkLists: LinkList[], deletedLinkLists: LinkList[] }> {
     const affectedLinkLists = await db.linkLists
       .filter(linkList => linkList.placeIds.includes(placeId))
       .toArray();
+    
+    const updatedLinkLists: LinkList[] = [];
+    const deletedLinkLists: LinkList[] = [];
     
     for (const linkList of affectedLinkLists) {
       const updatedPlaceIds = linkList.placeIds.filter(id => id !== placeId);
@@ -110,20 +150,28 @@ class LinkListServiceImpl implements LinkListService {
       // If no places remain, delete the link list
       if (updatedPlaceIds.length === 0 && linkList.collectionIds.length === 0) {
         await this.deleteLinkList(linkList.id);
+        deletedLinkLists.push(linkList);
       } else {
         // Update the link list to remove the deleted place
+        const updatedLinkList = { ...linkList, placeIds: updatedPlaceIds, updatedAt: new Date() };
         await this.updateLinkList(linkList.id, {
           placeIds: updatedPlaceIds,
         });
+        updatedLinkLists.push(updatedLinkList);
       }
     }
+    
+    return { updatedLinkLists, deletedLinkLists };
   }
   
   // Handle cascade updates when collections are deleted
-  async handleCollectionDeletion(collectionId: string): Promise<void> {
+  async handleCollectionDeletion(collectionId: string): Promise<{ updatedLinkLists: LinkList[], deletedLinkLists: LinkList[] }> {
     const affectedLinkLists = await db.linkLists
       .filter(linkList => linkList.collectionIds.includes(collectionId))
       .toArray();
+    
+    const updatedLinkLists: LinkList[] = [];
+    const deletedLinkLists: LinkList[] = [];
     
     for (const linkList of affectedLinkLists) {
       const updatedCollectionIds = linkList.collectionIds.filter(id => id !== collectionId);
@@ -131,13 +179,18 @@ class LinkListServiceImpl implements LinkListService {
       // If no collections remain and no individual places, delete the link list
       if (updatedCollectionIds.length === 0 && linkList.placeIds.length === 0) {
         await this.deleteLinkList(linkList.id);
+        deletedLinkLists.push(linkList);
       } else {
         // Update the link list to remove the deleted collection
+        const updatedLinkList = { ...linkList, collectionIds: updatedCollectionIds, updatedAt: new Date() };
         await this.updateLinkList(linkList.id, {
           collectionIds: updatedCollectionIds,
         });
+        updatedLinkLists.push(updatedLinkList);
       }
     }
+    
+    return { updatedLinkLists, deletedLinkLists };
   }
 }
 

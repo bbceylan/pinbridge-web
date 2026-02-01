@@ -7,7 +7,22 @@ import type { Place } from '@/types';
 export function generateAppleMapsUrl(place: Place): string {
   const baseUrl = 'https://maps.apple.com/';
 
-  if (place.latitude !== undefined && place.longitude !== undefined) {
+  // Check if coordinates are valid numbers
+  const hasValidCoordinates = 
+    place.latitude !== undefined && 
+    place.longitude !== undefined &&
+    typeof place.latitude === 'number' &&
+    typeof place.longitude === 'number' &&
+    !isNaN(place.latitude) && 
+    !isNaN(place.longitude) &&
+    isFinite(place.latitude) && 
+    isFinite(place.longitude) &&
+    place.latitude >= -90 && 
+    place.latitude <= 90 &&
+    place.longitude >= -180 && 
+    place.longitude <= 180;
+
+  if (hasValidCoordinates) {
     // Use coordinates for more accurate location
     const params = new URLSearchParams({
       ll: `${place.latitude},${place.longitude}`,
@@ -17,7 +32,9 @@ export function generateAppleMapsUrl(place: Place): string {
   }
 
   // Fall back to address/title query
-  const query = place.address || place.title;
+  const address = place.address?.trim();
+  const title = place.title?.trim();
+  const query = address || title || 'Location'; // Provide fallback for empty title/address
   const params = new URLSearchParams({ q: query });
   return `${baseUrl}?${params.toString()}`;
 }
@@ -29,13 +46,30 @@ export function generateAppleMapsUrl(place: Place): string {
 export function generateGoogleMapsUrl(place: Place): string {
   const baseUrl = 'https://www.google.com/maps/search/';
 
-  if (place.latitude !== undefined && place.longitude !== undefined) {
+  // Check if coordinates are valid numbers
+  const hasValidCoordinates = 
+    place.latitude !== undefined && 
+    place.longitude !== undefined &&
+    typeof place.latitude === 'number' &&
+    typeof place.longitude === 'number' &&
+    !isNaN(place.latitude) && 
+    !isNaN(place.longitude) &&
+    isFinite(place.latitude) && 
+    isFinite(place.longitude) &&
+    place.latitude >= -90 && 
+    place.latitude <= 90 &&
+    place.longitude >= -180 && 
+    place.longitude <= 180;
+
+  if (hasValidCoordinates) {
     // Use coordinates for more accurate location
     return `${baseUrl}?api=1&query=${place.latitude},${place.longitude}`;
   }
 
   // Fall back to address/title query
-  const query = encodeURIComponent(place.address || place.title);
+  const address = place.address?.trim();
+  const title = place.title?.trim();
+  const query = encodeURIComponent(address || title || 'Location'); // Provide fallback for empty title/address
   return `${baseUrl}?api=1&query=${query}`;
 }
 

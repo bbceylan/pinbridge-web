@@ -57,8 +57,45 @@ export function LinkListCreator({ onLinkListCreated, onCancel }: LinkListCreator
       }
     }
 
-    return allPlaces;
+    return allPlaces.sort((a, b) => a.title.localeCompare(b.title));
   }, [places, placeCollections, selectedPlaceIds, selectedCollectionIds]);
+
+  // Helper function to check if a place is included via collection selection
+  const isPlaceIncludedViaCollection = useMemo(() => {
+    if (!placeCollections) return new Set<string>();
+    
+    const collectionPlaceIds = new Set<string>();
+    for (const collectionId of Array.from(selectedCollectionIds)) {
+      const collectionPlaces = placeCollections
+        .filter(pc => pc.collectionId === collectionId)
+        .map(pc => pc.placeId);
+      
+      collectionPlaces.forEach(placeId => collectionPlaceIds.add(placeId));
+    }
+    
+    return collectionPlaceIds;
+  }, [placeCollections, selectedCollectionIds]);
+
+  // Helper function to get collection names for a place
+  const getCollectionNamesForPlace = useMemo(() => {
+    if (!collections || !placeCollections) return new Map<string, string[]>();
+    
+    const placeToCollections = new Map<string, string[]>();
+    
+    for (const place of places || []) {
+      const placeCollectionIds = placeCollections
+        .filter(pc => pc.placeId === place.id)
+        .map(pc => pc.collectionId);
+      
+      const collectionNames = collections
+        .filter(c => placeCollectionIds.includes(c.id))
+        .map(c => c.name);
+      
+      placeToCollections.set(place.id, collectionNames);
+    }
+    
+    return placeToCollections;
+  }, [places, collections, placeCollections]);
 
   // Generate default title based on selections
   const defaultTitle = useMemo(() => {
@@ -68,8 +105,12 @@ export function LinkListCreator({ onLinkListCreated, onCancel }: LinkListCreator
     
     if (selectedCollections.length === 1) {
       return selectedCollections[0].name;
-    } else if (selectedCollections.length > 1) {
-      return `${selectedCollections[0].name} and ${selectedCollections.length - 1} more`;
+    } else if (selectedCollections.length === 2) {
+      return `${selectedCollections[0].name} & ${selectedCollections[1].name}`;
+    } else if (selectedCollections.length === 3) {
+      return `${selectedCollections[0].name}, ${selectedCollections[1].name} & ${selectedCollections[2].name}`;
+    } else if (selectedCollections.length > 3) {
+      return `${selectedCollections[0].name}, ${selectedCollections[1].name} & ${selectedCollections.length - 2} more`;
     } else if (effectivePlaces.length > 0) {
       return `${effectivePlaces.length} Selected Places`;
     }
@@ -95,6 +136,12 @@ export function LinkListCreator({ onLinkListCreated, onCancel }: LinkListCreator
       newSelected.add(collectionId);
     }
     setSelectedCollectionIds(newSelected);
+  };
+
+  // Helper function to get place count for a collection
+  const getCollectionPlaceCount = (collectionId: string): number => {
+    if (!placeCollections) return 0;
+    return placeCollections.filter(pc => pc.collectionId === collectionId).length;
   };
 
   const handleCreate = async () => {
@@ -135,14 +182,7 @@ export function LinkListCreator({ onLinkListCreated, onCancel }: LinkListCreator
   const isValid = effectivePlaces.length > 0 && title.trim().length > 0;
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto">
-      <div>
-        <h1 className="text-2xl font-bold">Create Link List</h1>
-        <p className="text-muted-foreground">
-          Create a shareable page with clickable links to your places
-        </p>
-      </div>
-
+    <div className="space-y-6">
       {/* Title and Description */}
       <Card>
         <CardHeader>
@@ -184,22 +224,30 @@ export function LinkListCreator({ onLinkListCreated, onCancel }: LinkListCreator
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {collections.map((collection) => (
-                <div key={collection.id} className="flex items-center space-x-2">
-                  <Checkbox
-                    id={`collection-${collection.id}`}
-                    checked={selectedCollectionIds.has(collection.id)}
-                    onCheckedChange={() => handleCollectionToggle(collection.id)}
-                  />
-                  <Label 
-                    htmlFor={`collection-${collection.id}`}
-                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                  >
-                    {collection.name}
-                  </Label>
-                </div>
-              ))}
+            <div className="space-y-3">
+              {collections.map((collection) => {
+                const placeCount = getCollectionPlaceCount(collection.id);
+                return (
+                  <div key={collection.id} className="flex items-center gap-3 p-3 border rounded-lg hover:bg-accent">
+                    <Checkbox
+                      id={`collection-${collection.id}`}
+                      checked={selectedCollectionIds.has(collection.id)}
+                      onCheckedChange={() => handleCollectionToggle(collection.id)}
+                    />
+                    <div className="flex-1 min-w-0">
+                      <Label 
+                        htmlFor={`collection-${collection.id}`}
+                        className="font-medium cursor-pointer"
+                      >
+                        {collection.name}
+                      </Label>
+                      <p className="text-sm text-muted-foreground">
+                        {placeCount} place{placeCount !== 1 ? 's' : ''}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </CardContent>
         </Card>
@@ -216,27 +264,50 @@ export function LinkListCreator({ onLinkListCreated, onCancel }: LinkListCreator
           </CardHeader>
           <CardContent>
             <div className="max-h-96 overflow-y-auto space-y-2">
-              {places.map((place) => (
-                <div key={place.id} className="flex items-start space-x-2 p-2 rounded hover:bg-accent">
-                  <Checkbox
-                    id={`place-${place.id}`}
-                    checked={selectedPlaceIds.has(place.id)}
-                    onCheckedChange={() => handlePlaceToggle(place.id)}
-                    className="mt-1"
-                  />
-                  <div className="flex-1 min-w-0">
-                    <Label 
-                      htmlFor={`place-${place.id}`}
-                      className="text-sm font-medium leading-none cursor-pointer"
-                    >
-                      {place.title}
-                    </Label>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {place.address}
-                    </p>
+              {places.map((place) => {
+                const isIncludedViaCollection = isPlaceIncludedViaCollection.has(place.id);
+                const isIndividuallySelected = selectedPlaceIds.has(place.id);
+                const collectionNames = getCollectionNamesForPlace.get(place.id) || [];
+                const selectedCollectionNames = collectionNames.filter(name => 
+                  collections?.some(c => c.name === name && selectedCollectionIds.has(c.id))
+                );
+
+                return (
+                  <div key={place.id} className={`flex items-start gap-3 p-3 border rounded-lg hover:bg-accent transition-colors ${
+                    isIncludedViaCollection && !isIndividuallySelected ? 'bg-blue-50 border-blue-200' : ''
+                  }`}>
+                    <Checkbox
+                      id={`place-${place.id}`}
+                      checked={isIndividuallySelected}
+                      onCheckedChange={() => handlePlaceToggle(place.id)}
+                      className="mt-1"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <Label 
+                          htmlFor={`place-${place.id}`}
+                          className="font-medium cursor-pointer"
+                        >
+                          {place.title}
+                        </Label>
+                        {isIncludedViaCollection && !isIndividuallySelected && (
+                          <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
+                            Via collection
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        {place.address}
+                      </p>
+                      {selectedCollectionNames.length > 0 && (
+                        <p className="text-xs text-blue-600 mt-1">
+                          From: {selectedCollectionNames.join(', ')}
+                        </p>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </CardContent>
         </Card>
@@ -245,19 +316,29 @@ export function LinkListCreator({ onLinkListCreated, onCancel }: LinkListCreator
       {/* Summary */}
       <Card>
         <CardContent className="pt-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="font-medium">
-                {effectivePlaces.length} place{effectivePlaces.length !== 1 ? 's' : ''} selected
-              </p>
-              <p className="text-sm text-muted-foreground">
-                {selectedCollectionIds.size > 0 && 
-                  `${selectedCollectionIds.size} collection${selectedCollectionIds.size !== 1 ? 's' : ''}, `}
-                {selectedPlaceIds.size > 0 && 
-                  `${selectedPlaceIds.size} individual place${selectedPlaceIds.size !== 1 ? 's' : ''}`}
-              </p>
+          <div className="border rounded-lg p-4 space-y-2 bg-muted/50">
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Places included</span>
+              <span className="font-medium">{effectivePlaces.length}</span>
             </div>
+            {selectedCollectionIds.size > 0 && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Collections</span>
+                <span className="font-medium">{selectedCollectionIds.size}</span>
+              </div>
+            )}
+            {selectedPlaceIds.size > 0 && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Individual places</span>
+                <span className="font-medium">{selectedPlaceIds.size}</span>
+              </div>
+            )}
           </div>
+          {selectedCollectionIds.size > 0 && selectedPlaceIds.size > 0 && (
+            <p className="text-xs text-blue-600 mt-2">
+              Some places may be included both individually and via collections
+            </p>
+          )}
         </CardContent>
       </Card>
 

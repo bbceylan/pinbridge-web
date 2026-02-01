@@ -1,4 +1,5 @@
 import type { Place, LinkList } from '@/types';
+import { linkListCache, cacheKeys, cacheUtils } from './cache';
 
 export interface URLService {
   generateShareableURL(linkList: LinkList, places: Place[]): string;
@@ -27,17 +28,33 @@ class URLServiceImpl implements URLService {
   private readonly MAX_URL_LENGTH = 2000; // Conservative browser limit
   
   generateShareableURL(linkList: LinkList, places: Place[]): string {
+    // Generate cache key based on link list and places
+    const placesHash = cacheUtils.generateHash(places.map(p => ({ id: p.id, title: p.title, address: p.address })));
+    const cacheKey = cacheKeys.shareableURL(linkList.id, placesHash);
+    
+    // Check cache first
+    const cachedURL = linkListCache.getCachedURL(cacheKey);
+    if (cachedURL) {
+      return cachedURL;
+    }
+    
     const encodedData = this.encodeLinkListData(linkList, places);
     const baseUrl = this.getBaseUrl();
     const url = `${baseUrl}/link-list/${linkList.id}?data=${encodedData}`;
     
     // Check URL length and fallback if too long
+    let finalURL: string;
     if (url.length > this.MAX_URL_LENGTH) {
       // Fallback: use just the ID and fetch data from IndexedDB
-      return `${baseUrl}/link-list/${linkList.id}`;
+      finalURL = `${baseUrl}/link-list/${linkList.id}`;
+    } else {
+      finalURL = url;
     }
     
-    return url;
+    // Cache the generated URL
+    linkListCache.cacheURL(cacheKey, finalURL);
+    
+    return finalURL;
   }
   
   parseShareableURL(url: string): { linkListId: string; places: Place[] } | null {
@@ -68,6 +85,8 @@ class URLServiceImpl implements URLService {
   }
   
   generateQRCodeURL(linkList: LinkList, places: Place[]): string {
+    // QR codes use the same URL as shareable URLs, but we can cache them separately
+    // if needed for different QR-specific optimizations
     return this.generateShareableURL(linkList, places);
   }
   

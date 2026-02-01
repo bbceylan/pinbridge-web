@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { db } from '@/lib/db';
 import { generateId, normalizeString } from '@/lib/utils';
+import { linkListService } from '@/lib/services/link-list';
+import { notificationService } from '@/lib/services/notifications';
 import type { Place, Collection, PlaceCollection, ParsedPlace, ImportResult } from '@/types';
 
 interface PlacesState {
@@ -87,10 +89,24 @@ export const usePlacesStore = create<PlacesState>((set, get) => ({
   },
 
   deletePlace: async (id) => {
-    await db.transaction('rw', [db.places, db.placeCollections, db.transferPackItems], async () => {
+    // Get place name for notification before deletion
+    const place = await db.places.get(id);
+    const placeName = place?.title || 'Unknown Place';
+    
+    await db.transaction('rw', [db.places, db.placeCollections, db.transferPackItems, db.linkLists], async () => {
       await db.places.delete(id);
       await db.placeCollections.where('placeId').equals(id).delete();
       await db.transferPackItems.where('placeId').equals(id).delete();
+      
+      // Handle cascade updates for link lists and get affected lists
+      const { updatedLinkLists, deletedLinkLists } = await linkListService.handlePlaceDeletion(id);
+      
+      // Show notification about affected Link Lists
+      notificationService.notifyLinkListsAffectedByPlaceDeletion(
+        placeName,
+        updatedLinkLists,
+        deletedLinkLists
+      );
     });
     set((state) => ({
       places: state.places.filter((p) => p.id !== id),
@@ -203,9 +219,23 @@ export const usePlacesStore = create<PlacesState>((set, get) => ({
   },
 
   deleteCollection: async (id) => {
-    await db.transaction('rw', [db.collections, db.placeCollections], async () => {
+    // Get collection name for notification before deletion
+    const collection = await db.collections.get(id);
+    const collectionName = collection?.name || 'Unknown Collection';
+    
+    await db.transaction('rw', [db.collections, db.placeCollections, db.linkLists], async () => {
       await db.collections.delete(id);
       await db.placeCollections.where('collectionId').equals(id).delete();
+      
+      // Handle cascade updates for link lists and get affected lists
+      const { updatedLinkLists, deletedLinkLists } = await linkListService.handleCollectionDeletion(id);
+      
+      // Show notification about affected Link Lists
+      notificationService.notifyLinkListsAffectedByCollectionDeletion(
+        collectionName,
+        updatedLinkLists,
+        deletedLinkLists
+      );
     });
     set((state) => ({
       collections: state.collections.filter((c) => c.id !== id),

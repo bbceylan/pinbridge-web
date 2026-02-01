@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/lib/db';
 import { exportToCsv } from '@/lib/parsers/csv';
@@ -11,10 +12,16 @@ import type { Collection } from '@/types';
 
 export default function ExportPage() {
   const [selectedCollectionId, setSelectedCollectionId] = useState<string | 'all'>('all');
+  const router = useRouter();
 
   const places = useLiveQuery(() => db.places.toArray(), []);
   const collections = useLiveQuery(() => db.collections.toArray(), []);
   const placeCollections = useLiveQuery(() => db.placeCollections.toArray(), []);
+
+  const handleCreateLinkList = () => {
+    // Navigate to link list creation page
+    router.push('/link-list/create');
+  };
 
   const handleExportCsv = async () => {
     if (!places || !placeCollections || !collections) return;
@@ -102,7 +109,7 @@ export default function ExportPage() {
         </CardContent>
       </Card>
 
-      {/* Link List (simplified) */}
+      {/* Link List */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -110,19 +117,26 @@ export default function ExportPage() {
             Link List
           </CardTitle>
           <CardDescription>
-            View all your places as clickable links - useful for quick access on mobile
+            Create a shareable page with clickable links to your places - perfect for mobile access
           </CardDescription>
         </CardHeader>
         <CardContent>
           <p className="text-sm text-muted-foreground mb-4">
-            For a guided transfer experience with progress tracking, use{' '}
+            Generate QR codes for easy sharing. For guided transfer workflows with progress tracking, use{' '}
             <a href="/transfer-packs/new" className="text-primary hover:underline">
               Transfer Packs
             </a>{' '}
-            instead.
+            instead. View all your{' '}
+            <a href="/link-lists" className="text-primary hover:underline">
+              Link Lists
+            </a>.
           </p>
-          <Button variant="outline" disabled>
-            Coming soon
+          <Button 
+            onClick={handleCreateLinkList}
+            disabled={!places || places.length === 0}
+          >
+            <LinkIcon className="w-4 h-4 mr-2" />
+            Create Link List
           </Button>
         </CardContent>
       </Card>
