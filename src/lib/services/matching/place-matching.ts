@@ -147,9 +147,65 @@ export class PlaceMatchingService {
   }
 
   /**
-   * Find the best matches for a place among candidates
+   * Find matches for a single place (simplified interface for property tests)
    */
-  async findMatches(query: PlaceMatchQuery): Promise<MatchingResult> {
+  findMatches(originalPlace: Place, candidatePlaces: NormalizedPlace[]): PlaceMatch[] {
+    const query: PlaceMatchQuery = {
+      originalPlace,
+      candidatePlaces,
+    };
+
+    // Use synchronous version for property tests
+    const normalizedOriginal = this.normalizeOriginalPlace(originalPlace);
+    const matches: PlaceMatch[] = [];
+
+    for (const candidate of candidatePlaces) {
+      const match = this.calculateMatchSync(normalizedOriginal, candidate, this.options);
+      
+      if (match.confidenceScore >= this.options.minConfidenceScore) {
+        matches.push(match);
+      }
+    }
+
+    // Sort by confidence score
+    matches.sort((a, b) => b.confidenceScore - a.confidenceScore);
+    
+    // Assign rankings
+    matches.forEach((match, index) => {
+      match.rank = index + 1;
+    });
+
+    return matches;
+  }
+
+  /**
+   * Calculate confidence score for a potential match (public interface for tests)
+   */
+  calculateConfidenceScore(original: Place, target: NormalizedPlace): number {
+    const normalizedOriginal = this.normalizeOriginalPlace(original);
+    const match = this.calculateMatchSync(normalizedOriginal, target, this.options);
+    return match.confidenceScore;
+  }
+
+  /**
+   * Get confidence level based on score (public interface for tests)
+   */
+  getConfidenceLevel(score: number): 'high' | 'medium' | 'low' {
+    return this.determineConfidenceLevel(score);
+  }
+
+  /**
+   * Calculate name similarity (public interface for tests)
+   */
+  calculateNameSimilarity(name1: string, name2: string): number {
+    const nameMatch = this.calculateNameMatch(name1, name2);
+    return nameMatch.score;
+  }
+
+  /**
+   * Find the best matches for a place among candidates (async version)
+   */
+  async findMatchesAsync(query: PlaceMatchQuery): Promise<MatchingResult> {
     const startTime = Date.now();
     const options = { ...this.options, ...query.options };
 
@@ -196,13 +252,13 @@ export class PlaceMatchingService {
   }
 
   /**
-   * Calculate match score between original place and candidate
+   * Calculate match score between original place and candidate (synchronous version)
    */
-  private async calculateMatch(
+  private calculateMatchSync(
     originalPlace: NormalizedOriginalPlace,
     candidatePlace: NormalizedPlace,
     options: Required<MatchingOptions>
-  ): Promise<PlaceMatch> {
+  ): PlaceMatch {
     const matchStartTime = Date.now();
     const matchFactors: MatchFactor[] = [];
 
@@ -305,6 +361,17 @@ export class PlaceMatchingService {
       calibrationInfo: calibrationResult,
       debugSummary,
     };
+  }
+
+  /**
+   * Calculate match score between original place and candidate (async version)
+   */
+  private async calculateMatch(
+    originalPlace: NormalizedOriginalPlace,
+    candidatePlace: NormalizedPlace,
+    options: Required<MatchingOptions>
+  ): Promise<PlaceMatch> {
+    return this.calculateMatchSync(originalPlace, candidatePlace, options);
   }
 
   /**
