@@ -6,6 +6,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/lib/db';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { AdNative } from '@/components/ads/ad-native';
 import {
   Search,
   MapPin,
@@ -17,6 +18,7 @@ import {
   MoreHorizontal,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { adService } from '@/lib/services/ad-service';
 import type { Place, Collection } from '@/types';
 
 export default function LibraryPage() {
@@ -107,8 +109,30 @@ export default function LibraryPage() {
 
       {/* Places list */}
       <div className="space-y-2">
-        {filteredPlaces.map((place) => (
-          <PlaceRow key={place.id} place={place} />
+        {filteredPlaces.map((place, index) => (
+          <div key={place.id}>
+            <PlaceRow place={place} />
+            {/* Show native ad after every 5th place */}
+            {(index + 1) % 5 === 0 && adService.shouldShowAds() && !adService.isPremiumUser() && (
+              <div className="mt-2">
+                <AdNative 
+                  placement={{
+                    id: 'library-native',
+                    type: 'native',
+                    size: 'responsive',
+                    position: 'content',
+                    priority: 6,
+                    minViewTime: 5,
+                    frequency: 'once-per-session',
+                    targetPages: ['/'],
+                    excludePages: []
+                  }}
+                  variant="travel"
+                  className="mb-2"
+                />
+              </div>
+            )}
+          </div>
         ))}
       </div>
 
@@ -221,6 +245,26 @@ function OnboardingView() {
           is a guided migration, not automatic syncing.
         </p>
       </details>
+
+      {/* Native ad for onboarding users */}
+      {adService.shouldShowAds() && !adService.isPremiumUser() && (
+        <div className="mt-8 max-w-md">
+          <AdNative 
+            placement={{
+              id: 'onboarding-native',
+              type: 'native',
+              size: 'responsive',
+              position: 'content',
+              priority: 7,
+              minViewTime: 3,
+              frequency: 'once-per-session',
+              targetPages: ['/'],
+              excludePages: []
+            }}
+            variant="travel"
+          />
+        </div>
+      )}
     </div>
   );
 }

@@ -7,8 +7,10 @@ import { db } from '@/lib/db';
 import { useTransferPacksStore } from '@/stores/transfer-packs';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { AdNative } from '@/components/ads/ad-native';
 import { Plus, Play, Trash2, MoreHorizontal } from 'lucide-react';
 import { formatDateTime } from '@/lib/utils';
+import { adService } from '@/lib/services/ad-service';
 import type { TransferPack } from '@/types';
 
 export default function TransferPacksPage() {
@@ -40,8 +42,30 @@ export default function TransferPacksPage() {
         </Card>
       ) : (
         <div className="space-y-3">
-          {packs?.map((pack) => (
-            <PackCard key={pack.id} pack={pack} />
+          {packs?.map((pack, index) => (
+            <div key={pack.id}>
+              <PackCard pack={pack} />
+              {/* Show native ad after every 3rd pack */}
+              {(index + 1) % 3 === 0 && adService.shouldShowAds() && !adService.isPremiumUser() && (
+                <div className="mt-3">
+                  <AdNative 
+                    placement={{
+                      id: 'content-native',
+                      type: 'native',
+                      size: 'responsive',
+                      position: 'content',
+                      priority: 6,
+                      minViewTime: 10,
+                      frequency: 'once-per-session',
+                      targetPages: ['/transfer-packs'],
+                      excludePages: []
+                    }}
+                    variant="travel"
+                    className="mb-3"
+                  />
+                </div>
+              )}
+            </div>
           ))}
         </div>
       )}

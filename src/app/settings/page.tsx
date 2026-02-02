@@ -5,21 +5,51 @@ import { useRouter } from 'next/navigation';
 import { clearAllData, getPlaceCount } from '@/lib/db';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Trash2, Download, AlertTriangle } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import { Trash2, Download, AlertTriangle, Shield, Crown, Eye } from 'lucide-react';
+import { adService } from '@/lib/services/ad-service';
+import { paymentService } from '@/lib/services/payment-service';
 
 export default function SettingsPage() {
   const router = useRouter();
   const [placeCount, setPlaceCount] = useState(0);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [adPreferences, setAdPreferences] = useState({ adsEnabled: true });
+  const [isPremium, setIsPremium] = useState(false);
 
   useEffect(() => {
     getPlaceCount().then(setPlaceCount);
+    
+    // Load ad preferences
+    const stored = localStorage.getItem('pinbridge_ad_preferences');
+    if (stored) {
+      setAdPreferences(JSON.parse(stored));
+    }
+
+    // Check premium status
+    setIsPremium(paymentService.isPremiumUser());
+
+    // Listen for subscription updates
+    const handleSubscriptionUpdate = () => {
+      setIsPremium(paymentService.isPremiumUser());
+    };
+
+    window.addEventListener('subscription-updated', handleSubscriptionUpdate);
+    return () => window.removeEventListener('subscription-updated', handleSubscriptionUpdate);
   }, []);
 
   const handleDeleteAll = async () => {
     await clearAllData();
     setShowDeleteConfirm(false);
     router.push('/');
+  };
+
+  const handleAdPreferenceChange = (enabled: boolean) => {
+    const newPreferences = { adsEnabled: enabled };
+    setAdPreferences(newPreferences);
+    adService.updateUserPreferences(newPreferences);
   };
 
   return (
@@ -29,25 +59,128 @@ export default function SettingsPage() {
         <p className="text-muted-foreground">Manage your data and preferences</p>
       </div>
 
-      {/* Data Storage */}
+      {/* Premium Status */}
+      {isPremium ? (
+        <Card className="border-yellow-200 bg-gradient-to-r from-yellow-50 to-orange-50">
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2">
+              <Crown className="h-5 w-5 text-yellow-600" />
+              <span className="text-yellow-900">Premium Account</span>
+              <Badge className="bg-yellow-600">Active</Badge>
+            </CardTitle>
+            <CardDescription className="text-yellow-800">
+              You're enjoying an ad-free experience with unlimited transfers
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button variant="outline" onClick={() => router.push('/premium')}>
+              Manage Subscription
+            </Button>
+          </CardContent>
+        </Card>
+      ) : (
+        <Card className="border-blue-200 bg-blue-50">
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2">
+              <Crown className="h-5 w-5 text-blue-600" />
+              <span className="text-blue-900">Upgrade to Premium</span>
+            </CardTitle>
+            <CardDescription className="text-blue-800">
+              Remove ads, get unlimited transfers, and priority support
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button className="bg-blue-600 hover:bg-blue-700" onClick={() => router.push('/premium')}>
+              <Crown className="h-4 w-4 mr-2" />
+              Upgrade Now
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Ad Preferences */}
+      {!isPremium && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2">
+              <Eye className="h-5 w-5" />
+              <span>Advertisement Preferences</span>
+            </CardTitle>
+            <CardDescription>
+              Control how ads are displayed in PinBridge
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="space-y-1">
+                <Label htmlFor="ads-enabled">Show Advertisements</Label>
+                <p className="text-sm text-muted-foreground">
+                  Ads help keep PinBridge free. Disable to hide ads (some features may be limited).
+                </p>
+              </div>
+              <Switch
+                id="ads-enabled"
+                checked={adPreferences.adsEnabled}
+                onCheckedChange={handleAdPreferenceChange}
+              />
+            </div>
+
+            {!adPreferences.adsEnabled && (
+              <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg">
+                <div className="flex items-start space-x-2">
+                  <AlertTriangle className="h-4 w-4 text-orange-600 mt-0.5" />
+                  <div className="text-sm">
+                    <p className="font-medium text-orange-900">Limited Experience</p>
+                    <p className="text-orange-800">
+                      With ads disabled, some features may be limited. Consider upgrading to Premium for the best experience.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="pt-2">
+              <h4 className="font-medium mb-2">Why We Show Ads</h4>
+              <ul className="text-sm text-muted-foreground space-y-1">
+                <li>• Ads help us keep PinBridge completely free</li>
+                <li>• We only show relevant, travel-related advertisements</li>
+                <li>• Your privacy is protected - we don't sell personal data</li>
+                <li>• Premium users enjoy an ad-free experience</li>
+              </ul>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Privacy & Data */}
       <Card>
         <CardHeader>
-          <CardTitle>Data Storage</CardTitle>
+          <CardTitle className="flex items-center space-x-2">
+            <Shield className="h-5 w-5" />
+            <span>Privacy & Data</span>
+          </CardTitle>
           <CardDescription>
-            All your data is stored locally in your browser by default
+            Your data privacy and security settings
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex items-center justify-between p-3 rounded-lg bg-muted">
-            <div>
-              <p className="font-medium">Local Database</p>
-              <p className="text-sm text-muted-foreground">{placeCount} places stored</p>
-            </div>
+          <div className="space-y-2">
+            <h4 className="font-medium">Data Storage</h4>
+            <p className="text-sm text-muted-foreground">
+              All your data is stored locally in your browser by default. {placeCount} places stored.
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <h4 className="font-medium">Analytics</h4>
+            <p className="text-sm text-muted-foreground">
+              We collect anonymous usage data to improve PinBridge. No personal information is shared.
+            </p>
           </div>
 
           <Button variant="outline" onClick={() => router.push('/export')}>
             <Download className="w-4 h-4 mr-2" />
-            Export Backup
+            Export Data Backup
           </Button>
         </CardContent>
       </Card>
@@ -101,6 +234,10 @@ export default function SettingsPage() {
           <p className="pt-2">
             <strong>Privacy:</strong> Your data stays on your device by default. No account
             required.
+          </p>
+          <p className="pt-2">
+            <strong>Support:</strong> PinBridge is supported by ads and premium subscriptions.
+            Thank you for helping us keep this service free!
           </p>
         </CardContent>
       </Card>

@@ -4,11 +4,13 @@ import { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { AdNative } from '@/components/ads/ad-native';
 import { Upload, Link as LinkIcon, FileSpreadsheet, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
 import { parseTakeoutZip } from '@/lib/parsers/takeout';
 import { parseCsv, getCsvTemplate } from '@/lib/parsers/csv';
 import { parseMapUrl } from '@/lib/links';
 import { usePlacesStore } from '@/stores/places';
+import { adService } from '@/lib/services/ad-service';
 import type { ImportResult, ParsedPlace } from '@/types';
 
 export default function ImportPage() {
@@ -313,6 +315,26 @@ export default function ImportPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Native ad after import options */}
+      {adService.shouldShowAds() && !adService.isPremiumUser() && (
+        <div className="mt-6">
+          <AdNative 
+            placement={{
+              id: 'import-native',
+              type: 'native',
+              size: 'responsive',
+              position: 'content',
+              priority: 6,
+              minViewTime: 5,
+              frequency: 'once-per-session',
+              targetPages: ['/import'],
+              excludePages: []
+            }}
+            variant="productivity"
+          />
+        </div>
+      )}
     </div>
   );
 }
