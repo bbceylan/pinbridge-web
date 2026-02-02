@@ -5,6 +5,7 @@
 import { BaseAPIService } from './base-service';
 import { GoogleMapsErrorHandler } from './google-maps-errors';
 import { ResponseNormalizer } from './response-normalizer';
+import { apiResponseCache } from '../intelligent-cache';
 import type { 
   APIConfig, 
   APIResponse, 
@@ -169,7 +170,20 @@ export class GoogleMapsService extends BaseAPIService {
    * Search for places using Google Maps Places API Text Search
    */
   async searchPlaces(query: PlaceSearchQuery): Promise<APIResponse<GoogleMapsPlace[]>> {
+    // Generate cache key for this query
     const searchParams = this.buildTextSearchParams(query);
+    const queryString = searchParams.toString();
+    
+    // Check intelligent cache first
+    const cachedResponse = await apiResponseCache.getCachedApiResponse('google', queryString);
+    if (cachedResponse) {
+      return {
+        success: true,
+        data: cachedResponse.map(place => this.convertFromNormalized(place)),
+        rateLimitInfo: { remaining: 1000, resetTime: new Date() } // Cached response
+      };
+    }
+
     const cacheKey = this.generateCacheKey('/place/textsearch/json', searchParams);
     
     const response = await this.makeRequestWithRetry<GoogleMapsSearchResponse>(
@@ -193,11 +207,39 @@ export class GoogleMapsService extends BaseAPIService {
       this.normalizeSearchResult(result)
     );
 
+    // Cache the normalized response in intelligent cache
+    const normalizedResults = normalizedPlaces.map(place => 
+      ResponseNormalizer.normalizeGoogleMapsPlace(place)
+    );
+    await apiResponseCache.cacheApiResponse('google', queryString, normalizedResults);
+
     return {
       success: true,
       data: normalizedPlaces,
       rateLimitInfo: response.rateLimitInfo
     };
+  }
+
+  /**
+   * Convert normalized place back to Google Maps format
+   */
+  private convertFromNormalized(normalized: NormalizedPlace): GoogleMapsPlace {
+    return {
+      placeId: normalized.id,
+      name: normalized.name,
+      formattedAddress: normalized.address,
+      geometry: {
+        location: {
+          lat: normalized.latitude,
+          lng: normalized.longitude,
+        },
+      },
+      types: normalized.types || [],
+      rating: normalized.rating,
+      website: normalized.website,
+      businessStatus: 'OPERATIONAL',
+    };
+  }
   }
 
   /**

@@ -10,6 +10,7 @@ import { PlaceMatchingService } from './matching/place-matching';
 import { AppleMapsService } from './api/apple-maps';
 import { GoogleMapsService } from './api/google-maps';
 import { ResponseNormalizer } from './api/response-normalizer';
+import { workerPoolManager } from './worker-pool-manager';
 import { db } from '@/lib/db';
 import type { 
   Place, 
@@ -84,8 +85,8 @@ export class BatchProcessingEngine {
 
   constructor() {
     this.matchingService = new PlaceMatchingService();
-    this.appleMapsService = new AppleMapsService();
-    this.googleMapsService = new GoogleMapsService();
+    this.appleMapsService = new AppleMapsService(''); // Will be configured later
+    this.googleMapsService = new GoogleMapsService(''); // Will be configured later
   }
 
   /**
@@ -446,19 +447,29 @@ export class BatchProcessingEngine {
 
         if (target === 'apple') {
           const results = await this.appleMapsService.searchPlaces(searchQuery);
-          candidatePlaces = results.map(p => ResponseNormalizer.normalizeAppleMapsPlace(p));
+          candidatePlaces = results.data.map((p: any) => ResponseNormalizer.normalizeAppleMapsPlace(p));
           apiCallsUsed = 1;
         } else if (target === 'google') {
           const results = await this.googleMapsService.searchPlaces(searchQuery);
-          candidatePlaces = results.map(p => ResponseNormalizer.normalizeGoogleMapsPlace(p));
+          candidatePlaces = results.data.map((p: any) => ResponseNormalizer.normalizeGoogleMapsPlace(p));
           apiCallsUsed = 1;
         }
 
-        // Find matches using matching service
-        const matchingResult = await this.matchingService.findMatchesAsync({
-          originalPlace: place,
-          candidatePlaces,
-        });
+        // Use Web Worker for CPU-intensive matching if available
+        let matchingResult;
+        try {
+          matchingResult = await workerPoolManager.executeMatchQuery({
+            originalPlace: place,
+            candidatePlaces,
+          });
+        } catch (workerError) {
+          // Fallback to main thread if worker fails
+          console.warn('Worker matching failed, falling back to main thread:', workerError);
+          matchingResult = await this.matchingService.findMatchesAsync({
+            originalPlace: place,
+            candidatePlaces,
+          });
+        }
 
         return {
           success: matchingResult.matches.length > 0,

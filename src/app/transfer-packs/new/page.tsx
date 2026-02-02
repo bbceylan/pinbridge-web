@@ -10,12 +10,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { ArrowLeft, ArrowRight, AlertCircle } from 'lucide-react';
 import type { TransferTarget, Collection } from '@/types';
 
-type Step = 'target' | 'scope' | 'review';
+type Step = 'target' | 'mode' | 'scope' | 'review';
 
 export default function NewTransferPackPage() {
   const router = useRouter();
   const [step, setStep] = useState<Step>('target');
   const [target, setTarget] = useState<TransferTarget>('apple');
+  const [transferMode, setTransferMode] = useState<'manual' | 'automated'>('automated');
   const [scopeType, setScopeType] = useState<'library' | 'collection'>('library');
   const [selectedCollectionId, setSelectedCollectionId] = useState<string | null>(null);
   const [excludeMissingCoords, setExcludeMissingCoords] = useState(true);
@@ -60,7 +61,12 @@ export default function NewTransferPackPage() {
       scopeType === 'collection' ? selectedCollectionId ?? undefined : undefined
     );
 
-    router.push(`/transfer-packs/${pack.id}/run`);
+    // Route based on transfer mode
+    if (transferMode === 'automated') {
+      router.push(`/transfer-packs/${pack.id}/verify`);
+    } else {
+      router.push(`/transfer-packs/${pack.id}/run`);
+    }
   };
 
   return (
@@ -72,7 +78,7 @@ export default function NewTransferPackPage() {
         <div>
           <h1 className="text-2xl font-bold">New Transfer Pack</h1>
           <p className="text-muted-foreground">
-            Step {step === 'target' ? 1 : step === 'scope' ? 2 : 3} of 3
+            Step {step === 'target' ? 1 : step === 'mode' ? 2 : step === 'scope' ? 3 : 4} of 4
           </p>
         </div>
       </div>
@@ -121,6 +127,83 @@ export default function NewTransferPackPage() {
               </div>
             </label>
             <div className="pt-4">
+              <Button onClick={() => setStep('mode')}>
+                Next
+                <ArrowRight className="w-4 h-4 ml-2" />
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Step 2: Choose Transfer Mode */}
+      {step === 'mode' && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Choose Transfer Mode</CardTitle>
+            <CardDescription>
+              Select how you want to transfer your places to {target === 'apple' ? 'Apple Maps' : 'Google Maps'}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <label className="flex items-start gap-3 p-4 border rounded-lg cursor-pointer hover:bg-accent">
+              <input
+                type="radio"
+                name="mode"
+                value="automated"
+                checked={transferMode === 'automated'}
+                onChange={() => setTransferMode('automated')}
+                className="w-4 h-4 mt-1"
+              />
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-1">
+                  <p className="font-medium">Automated Transfer</p>
+                  <span className="px-2 py-0.5 text-xs bg-blue-100 text-blue-700 rounded">
+                    Recommended
+                  </span>
+                </div>
+                <p className="text-sm text-muted-foreground mb-2">
+                  Automatically search and match your places in {target === 'apple' ? 'Apple Maps' : 'Google Maps'}. 
+                  You'll review and verify matches before completing the transfer.
+                </p>
+                <div className="text-xs text-green-700 bg-green-50 p-2 rounded">
+                  <strong>Benefits:</strong>
+                  <ul className="mt-1 space-y-0.5 ml-4 list-disc">
+                    <li>Much faster for large collections</li>
+                    <li>Intelligent matching with confidence scores</li>
+                    <li>Bulk operations for similar places</li>
+                    <li>Manual override for uncertain matches</li>
+                  </ul>
+                </div>
+              </div>
+            </label>
+
+            <label className="flex items-start gap-3 p-4 border rounded-lg cursor-pointer hover:bg-accent">
+              <input
+                type="radio"
+                name="mode"
+                value="manual"
+                checked={transferMode === 'manual'}
+                onChange={() => setTransferMode('manual')}
+                className="w-4 h-4 mt-1"
+              />
+              <div className="flex-1">
+                <p className="font-medium">Manual Transfer</p>
+                <p className="text-sm text-muted-foreground mb-2">
+                  Open each place individually in {target === 'apple' ? 'Apple Maps' : 'Google Maps'} 
+                  and save them manually. Full control over each transfer.
+                </p>
+                <div className="text-xs text-gray-600 bg-gray-50 p-2 rounded">
+                  <strong>Best for:</strong> Small collections, places requiring special attention, 
+                  or when you prefer complete manual control.
+                </div>
+              </div>
+            </label>
+
+            <div className="pt-4 flex gap-2">
+              <Button variant="outline" onClick={() => setStep('target')}>
+                Back
+              </Button>
               <Button onClick={() => setStep('scope')}>
                 Next
                 <ArrowRight className="w-4 h-4 ml-2" />
@@ -130,7 +213,7 @@ export default function NewTransferPackPage() {
         </Card>
       )}
 
-      {/* Step 2: Choose Scope */}
+      {/* Step 3: Choose Scope */}
       {step === 'scope' && (
         <Card>
           <CardHeader>
@@ -205,7 +288,7 @@ export default function NewTransferPackPage() {
             </div>
 
             <div className="pt-4 flex gap-2">
-              <Button variant="outline" onClick={() => setStep('target')}>
+              <Button variant="outline" onClick={() => setStep('mode')}>
                 Back
               </Button>
               <Button
@@ -220,7 +303,7 @@ export default function NewTransferPackPage() {
         </Card>
       )}
 
-      {/* Step 3: Review */}
+      {/* Step 4: Review */}
       {step === 'review' && (
         <Card>
           <CardHeader>
@@ -246,6 +329,12 @@ export default function NewTransferPackPage() {
                 </span>
               </div>
               <div className="flex justify-between">
+                <span className="text-muted-foreground">Transfer Mode</span>
+                <span className="font-medium">
+                  {transferMode === 'automated' ? 'Automated Transfer' : 'Manual Transfer'}
+                </span>
+              </div>
+              <div className="flex justify-between">
                 <span className="text-muted-foreground">Scope</span>
                 <span className="font-medium">
                   {scopeType === 'library'
@@ -258,6 +347,21 @@ export default function NewTransferPackPage() {
                 <span className="font-medium">{eligiblePlaces?.length ?? 0}</span>
               </div>
             </div>
+
+            {transferMode === 'automated' && (
+              <div className="flex items-start gap-2 p-3 rounded-lg bg-blue-50 text-blue-800">
+                <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                <div className="text-sm">
+                  <p className="font-medium mb-1">Automated Transfer Process:</p>
+                  <ol className="list-decimal list-inside space-y-0.5 text-xs">
+                    <li>Places will be automatically searched in {target === 'apple' ? 'Apple Maps' : 'Google Maps'}</li>
+                    <li>Intelligent matching will find the best candidates</li>
+                    <li>You'll review and verify matches before completing the transfer</li>
+                    <li>Manual search available for uncertain matches</li>
+                  </ol>
+                </div>
+              </div>
+            )}
 
             {!excludeMissingCoords && missingCoordsCount > 0 && (
               <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-50 text-amber-800">

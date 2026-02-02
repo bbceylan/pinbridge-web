@@ -5,6 +5,7 @@
 import { BaseAPIService } from './base-service';
 import { AppleMapsErrorHandler } from './apple-maps-errors';
 import { ResponseNormalizer } from './response-normalizer';
+import { apiResponseCache } from '../intelligent-cache';
 import type { 
   APIConfig, 
   APIResponse, 
@@ -150,6 +151,19 @@ export class AppleMapsService extends BaseAPIService {
    * Search for places using Apple Maps API
    */
   async searchPlaces(query: PlaceSearchQuery): Promise<APIResponse<AppleMapsPlace[]>> {
+    // Generate cache key for this query
+    const queryString = this.buildSearchParams(query).toString();
+    
+    // Check intelligent cache first
+    const cachedResponse = await apiResponseCache.getCachedApiResponse('apple', queryString);
+    if (cachedResponse) {
+      return {
+        success: true,
+        data: cachedResponse.map(place => this.convertFromNormalized(place)),
+        rateLimitInfo: { remaining: 1000, resetTime: new Date() } // Cached response
+      };
+    }
+
     const searchParams = this.buildSearchParams(query);
     const cacheKey = this.generateCacheKey('/search', searchParams);
     
@@ -168,10 +182,39 @@ export class AppleMapsService extends BaseAPIService {
       this.normalizeSearchResult(result)
     );
 
+    // Cache the normalized response in intelligent cache
+    const normalizedResults = normalizedPlaces.map(place => 
+      ResponseNormalizer.normalizeAppleMapsPlace(place)
+    );
+    await apiResponseCache.cacheApiResponse('apple', queryString, normalizedResults);
+
     return {
       success: true,
       data: normalizedPlaces,
       rateLimitInfo: response.rateLimitInfo
+    };
+  }
+
+  /**
+   * Convert normalized place back to Apple Maps format
+   */
+  private convertFromNormalized(normalized: NormalizedPlace): AppleMapsPlace {
+    return {
+      id: normalized.id,
+      name: normalized.name,
+      coordinate: {
+        latitude: normalized.latitude,
+        longitude: normalized.longitude,
+      },
+      formattedAddressLines: [normalized.address],
+      structuredAddress: {
+        fullThoroughfare: normalized.address,
+      },
+      mapsUrl: normalized.url,
+      telephone: normalized.phoneNumber,
+      rating: normalized.rating,
+      categories: normalized.types,
+      website: normalized.website,
     };
   }
 

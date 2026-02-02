@@ -13,6 +13,7 @@ import type {
   ConfidenceLevel,
 } from '@/types';
 import type { APIUsageLog, CacheEntry, APIService } from '@/lib/services/api/types';
+import type { CacheEntry as IntelligentCacheEntry } from '@/lib/services/intelligent-cache';
 
 export class PinBridgeDB extends Dexie {
   places!: Table<Place, string>;
@@ -26,6 +27,7 @@ export class PinBridgeDB extends Dexie {
   apiUsageLog!: Table<APIUsageLog, string>;
   transferPackSessions!: Table<TransferPackSession, string>;
   placeMatchRecords!: Table<PlaceMatchRecord, string>;
+  cacheEntries!: Table<IntelligentCacheEntry<any>, string>;
 
   constructor() {
     super('pinbridge');
@@ -80,6 +82,23 @@ export class PinBridgeDB extends Dexie {
       apiUsageLog: 'id, service, endpoint, createdAt, sessionId, [service+createdAt], [sessionId+createdAt]',
       transferPackSessions: 'id, packId, status, createdAt, updatedAt, [packId+status], [status+updatedAt]',
       placeMatchRecords: 'id, sessionId, originalPlaceId, confidenceLevel, verificationStatus, verifiedAt, [sessionId+verificationStatus], [sessionId+confidenceLevel], [originalPlaceId+sessionId]',
+    });
+
+    // Version 5: Add intelligent caching system
+    this.version(5).stores({
+      places:
+        'id, title, address, normalizedTitle, normalizedAddress, source, createdAt, updatedAt, [normalizedTitle+normalizedAddress]',
+      collections: 'id, name, createdAt',
+      placeCollections: 'id, placeId, collectionId, [placeId+collectionId]',
+      transferPacks: 'id, name, target, createdAt',
+      transferPackItems: 'id, packId, placeId, status, [packId+status]',
+      importRuns: 'id, type, createdAt',
+      linkLists: 'id, title, createdAt, isPublic, updatedAt',
+      apiCache: 'key, timestamp',
+      apiUsageLog: 'id, service, endpoint, createdAt, sessionId, [service+createdAt], [sessionId+createdAt]',
+      transferPackSessions: 'id, packId, status, createdAt, updatedAt, [packId+status], [status+updatedAt]',
+      placeMatchRecords: 'id, sessionId, originalPlaceId, confidenceLevel, verificationStatus, verifiedAt, [sessionId+verificationStatus], [sessionId+confidenceLevel], [originalPlaceId+sessionId]',
+      cacheEntries: 'key, expiresAt, lastAccessedAt, createdAt, tags, [expiresAt+lastAccessedAt]',
     });
   }
 }

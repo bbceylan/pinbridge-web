@@ -5,6 +5,7 @@
  * using fuzzy string matching, geographic distance, and weighted scoring.
  */
 
+import { matchResultCache } from '../intelligent-cache';
 import type { Place } from '@/types';
 import type { NormalizedPlace } from '../api/response-normalizer';
 
@@ -209,6 +210,34 @@ export class PlaceMatchingService {
     const startTime = Date.now();
     const options = { ...this.options, ...query.options };
 
+    // Generate cache key for this matching query
+    const placeKey = matchResultCache.generatePlaceKey(
+      query.originalPlace.title,
+      query.originalPlace.address,
+      query.originalPlace.latitude,
+      query.originalPlace.longitude
+    );
+
+    // Check cache first
+    const cachedMatches = await matchResultCache.getCachedMatchResult(placeKey);
+    if (cachedMatches) {
+      return {
+        query,
+        matches: cachedMatches,
+        bestMatch: cachedMatches.length > 0 ? cachedMatches[0] : undefined,
+        processingTimeMs: Date.now() - startTime,
+        metadata: {
+          totalCandidates: query.candidatePlaces.length,
+          validMatches: cachedMatches.length,
+          averageConfidence: cachedMatches.length > 0 
+            ? Math.round(cachedMatches.reduce((sum, match) => sum + match.confidenceScore, 0) / cachedMatches.length)
+            : 0,
+          options,
+          cached: true,
+        },
+      };
+    }
+
     // Normalize the original place data
     const normalizedOriginal = this.normalizeOriginalPlace(query.originalPlace);
 
@@ -232,6 +261,11 @@ export class PlaceMatchingService {
       match.rank = index + 1;
     });
 
+    // Cache the results for future use
+    if (matches.length > 0) {
+      await matchResultCache.cacheMatchResult(placeKey, matches);
+    }
+
     const processingTime = Date.now() - startTime;
     const bestMatch = matches.length > 0 ? matches[0] : undefined;
     const averageConfidence = matches.length > 0 
@@ -247,6 +281,11 @@ export class PlaceMatchingService {
         totalCandidates: query.candidatePlaces.length,
         validMatches: matches.length,
         averageConfidence: Math.round(averageConfidence),
+        options,
+        cached: false,
+      },
+    };
+  }
       },
     };
   }
