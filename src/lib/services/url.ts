@@ -28,9 +28,29 @@ class URLServiceImpl implements URLService {
   private readonly MAX_URL_LENGTH = 2000; // Conservative browser limit
   
   generateShareableURL(linkList: LinkList, places: Place[]): string {
-    // Generate cache key based on link list and places
+    // Generate cache key based on link list content and places
     const placesHash = cacheUtils.generateHash(places.map(p => ({ id: p.id, title: p.title, address: p.address })));
-    const cacheKey = cacheKeys.shareableURL(linkList.id, placesHash);
+    
+    // Handle invalid dates gracefully
+    let createdAtString: string;
+    try {
+      if (linkList.createdAt instanceof Date) {
+        createdAtString = isNaN(linkList.createdAt.getTime()) ? new Date().toISOString() : linkList.createdAt.toISOString();
+      } else {
+        const date = new Date(linkList.createdAt);
+        createdAtString = isNaN(date.getTime()) ? new Date().toISOString() : date.toISOString();
+      }
+    } catch (error) {
+      createdAtString = new Date().toISOString();
+    }
+    
+    const linkListHash = cacheUtils.generateHash({
+      id: linkList.id,
+      title: linkList.title,
+      description: linkList.description,
+      createdAt: createdAtString,
+    });
+    const cacheKey = cacheKeys.shareableURL(linkListHash, placesHash);
     
     // Check cache first
     const cachedURL = linkListCache.getCachedURL(cacheKey);
@@ -105,7 +125,7 @@ class URLServiceImpl implements URLService {
       title: linkList.title,
       description: linkList.description,
       places: encodedPlaces,
-      createdAt: linkList.createdAt.toISOString(),
+      createdAt: linkList.createdAt instanceof Date ? linkList.createdAt.toISOString() : new Date(linkList.createdAt).toISOString(),
     };
     
     const jsonString = JSON.stringify(data);

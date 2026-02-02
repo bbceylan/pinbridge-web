@@ -102,3 +102,59 @@ export interface LinkList {
   expiresAt?: Date;
   isPublic: boolean;
 }
+
+// Automated Transfer with Verification Types
+
+export type TransferSessionStatus = 'pending' | 'processing' | 'verifying' | 'completed' | 'failed' | 'paused';
+
+export interface TransferPackSession {
+  id: string;
+  packId: string;
+  status: TransferSessionStatus;
+  createdAt: Date;
+  updatedAt: Date;
+  
+  // Processing metadata
+  apiCallsUsed: number;
+  processingTimeMs: number;
+  errorCount: number;
+  
+  // Progress tracking
+  totalPlaces: number;
+  processedPlaces: number;
+  verifiedPlaces: number;
+  completedPlaces: number;
+}
+
+export type ConfidenceLevel = 'high' | 'medium' | 'low';
+export type VerificationStatus = 'pending' | 'accepted' | 'rejected' | 'manual';
+export type VerifiedBy = 'user' | 'bulk_action';
+
+export interface MatchFactor {
+  type: 'name' | 'address' | 'distance' | 'category';
+  score: number;
+  weight: number;
+  explanation: string;
+}
+
+export interface PlaceMatchRecord {
+  id: string;
+  sessionId: string;
+  originalPlaceId: string;
+  
+  // Matching results
+  targetPlaceData: string; // JSON serialized target place data
+  confidenceScore: number;
+  confidenceLevel: ConfidenceLevel;
+  matchFactors: string; // JSON serialized MatchFactor[]
+  
+  // Verification status
+  verificationStatus: VerificationStatus;
+  verifiedAt?: Date;
+  verifiedBy?: VerifiedBy;
+  
+  // Manual override data
+  manualSearchQuery?: string;
+  manualSelectedPlace?: string; // JSON serialized target place data
+  userNotes?: string;
+}

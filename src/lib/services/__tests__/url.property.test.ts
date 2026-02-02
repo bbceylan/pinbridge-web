@@ -10,6 +10,16 @@ import { linkListService, type LinkListCreationData } from '../link-list';
 import { generateId } from '@/lib/utils';
 import type { Place, Collection, LinkList } from '@/types';
 
+// Suppress console errors during property tests (they're expected for error handling validation)
+const originalConsoleError = console.error;
+beforeAll(() => {
+  console.error = jest.fn();
+});
+
+afterAll(() => {
+  console.error = originalConsoleError;
+});
+
 // Test setup and teardown
 beforeEach(async () => {
   await db.delete();

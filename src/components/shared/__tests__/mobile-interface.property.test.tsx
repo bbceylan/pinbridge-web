@@ -173,17 +173,19 @@ const validateTouchTargetClasses = (element: HTMLElement): boolean => {
   const className = element.className;
   
   // Check for minimum height classes (44px requirement)
+  // h-11 = 44px, h-12 = 48px, min-h-[44px] = 44px
   const hasMinHeight = /min-h-\[44px\]|min-h-11|h-11|h-12|min-h-12/.test(className);
   
   // Check for minimum width classes (for compact buttons)
   const hasMinWidth = /min-w-\[44px\]|min-w-11|w-11|w-12|min-w-12/.test(className);
   
-  // For regular buttons, check height. For compact buttons, check both dimensions
-  const isCompactButton = className.includes('p-2') && !className.includes('flex-1');
+  // For compact buttons (those with explicit p-2 class), they should have both min dimensions
+  const isCompactButton = /\bp-2\b/.test(className);
   
   if (isCompactButton) {
     return hasMinHeight && hasMinWidth;
   } else {
+    // Regular buttons just need minimum height
     return hasMinHeight;
   }
 };

@@ -74,7 +74,9 @@ describe('LinkListCreator Edge Cases', () => {
 
       // Verify collection is selected but no places are shown
       expect(collectionCheckbox).toBeChecked();
-      expect(screen.getByText('0 places selected')).toBeInTheDocument();
+      expect(screen.getByText('Places included')).toBeInTheDocument();
+      const placesIncludedSection = screen.getByText('Places included').closest('div');
+      expect(placesIncludedSection).toHaveTextContent('0');
 
       // Try to create link list with empty collection
       const titleInput = screen.getByLabelText('Title');
@@ -197,7 +199,9 @@ describe('LinkListCreator Edge Cases', () => {
       await user.type(titleInput, 'Test No Places');
 
       // Verify summary shows 0 places
-      expect(screen.getByText('0 places selected')).toBeInTheDocument();
+      expect(screen.getByText('Places included')).toBeInTheDocument();
+      const placesIncludedSection = screen.getByText('Places included').closest('div');
+      expect(placesIncludedSection).toHaveTextContent('0');
 
       // Create button should be disabled
       const createButton = screen.getByRole('button', { name: /create link list/i });
@@ -241,7 +245,8 @@ describe('LinkListCreator Edge Cases', () => {
       const placeCheckbox = screen.getByLabelText('Test Place');
       await user.click(placeCheckbox);
 
-      expect(screen.getByText('1 place selected')).toBeInTheDocument();
+      expect(screen.getByText('Places included')).toBeInTheDocument();
+      expect(screen.getByText('Places included').parentElement?.textContent).toContain('1');
 
       // Create button should still be disabled due to missing title
       const createButton = screen.getByRole('button', { name: /create link list/i });
@@ -298,8 +303,10 @@ describe('LinkListCreator Edge Cases', () => {
       render(<LinkListCreator />);
 
       // Should show loading state or empty state gracefully
-      expect(screen.getByRole('heading', { name: 'Create Link List' })).toBeInTheDocument();
-      expect(screen.getByText('0 places selected')).toBeInTheDocument();
+      expect(screen.getByText('Link List Details')).toBeInTheDocument();
+      expect(screen.getByText('Places included')).toBeInTheDocument();
+      const placesIncludedSection = screen.getByText('Places included').closest('div');
+      expect(placesIncludedSection).toHaveTextContent('0');
 
       // Create button should be disabled
       const createButton = screen.getByRole('button', { name: /create link list/i });
@@ -525,7 +532,9 @@ describe('LinkListCreator Edge Cases', () => {
       }
 
       // Should end up with 0 places selected
-      expect(screen.getByText('0 places selected')).toBeInTheDocument();
+      expect(screen.getByText('Places included')).toBeInTheDocument();
+      const placesIncludedSection = screen.getByText('Places included').closest('div');
+      expect(placesIncludedSection).toHaveTextContent('0');
     });
   });
 

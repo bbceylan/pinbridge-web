@@ -7,7 +7,12 @@ import type {
   TransferPackItem,
   ImportRun,
   LinkList,
+  TransferPackSession,
+  PlaceMatchRecord,
+  VerificationStatus,
+  ConfidenceLevel,
 } from '@/types';
+import type { APIUsageLog, CacheEntry, APIService } from '@/lib/services/api/types';
 
 export class PinBridgeDB extends Dexie {
   places!: Table<Place, string>;
@@ -17,6 +22,10 @@ export class PinBridgeDB extends Dexie {
   transferPackItems!: Table<TransferPackItem, string>;
   importRuns!: Table<ImportRun, string>;
   linkLists!: Table<LinkList, string>;
+  apiCache!: Table<CacheEntry<any> & { key: string }, string>;
+  apiUsageLog!: Table<APIUsageLog, string>;
+  transferPackSessions!: Table<TransferPackSession, string>;
+  placeMatchRecords!: Table<PlaceMatchRecord, string>;
 
   constructor() {
     super('pinbridge');
@@ -41,6 +50,36 @@ export class PinBridgeDB extends Dexie {
       transferPackItems: 'id, packId, placeId, status, [packId+status]',
       importRuns: 'id, type, createdAt',
       linkLists: 'id, title, createdAt, isPublic, updatedAt',
+    });
+
+    // Version 3: Add API cache and usage logging
+    this.version(3).stores({
+      places:
+        'id, title, address, normalizedTitle, normalizedAddress, source, createdAt, updatedAt, [normalizedTitle+normalizedAddress]',
+      collections: 'id, name, createdAt',
+      placeCollections: 'id, placeId, collectionId, [placeId+collectionId]',
+      transferPacks: 'id, name, target, createdAt',
+      transferPackItems: 'id, packId, placeId, status, [packId+status]',
+      importRuns: 'id, type, createdAt',
+      linkLists: 'id, title, createdAt, isPublic, updatedAt',
+      apiCache: 'key, timestamp',
+      apiUsageLog: 'id, service, endpoint, createdAt, [service+createdAt]',
+    });
+
+    // Version 4: Add automated transfer with verification tables
+    this.version(4).stores({
+      places:
+        'id, title, address, normalizedTitle, normalizedAddress, source, createdAt, updatedAt, [normalizedTitle+normalizedAddress]',
+      collections: 'id, name, createdAt',
+      placeCollections: 'id, placeId, collectionId, [placeId+collectionId]',
+      transferPacks: 'id, name, target, createdAt',
+      transferPackItems: 'id, packId, placeId, status, [packId+status]',
+      importRuns: 'id, type, createdAt',
+      linkLists: 'id, title, createdAt, isPublic, updatedAt',
+      apiCache: 'key, timestamp',
+      apiUsageLog: 'id, service, endpoint, createdAt, sessionId, [service+createdAt], [sessionId+createdAt]',
+      transferPackSessions: 'id, packId, status, createdAt, updatedAt, [packId+status], [status+updatedAt]',
+      placeMatchRecords: 'id, sessionId, originalPlaceId, confidenceLevel, verificationStatus, verifiedAt, [sessionId+verificationStatus], [sessionId+confidenceLevel], [originalPlaceId+sessionId]',
     });
   }
 }
@@ -104,4 +143,70 @@ export async function getCollectionsInLinkList(linkListId: string): Promise<Coll
   if (!linkList) return [];
   
   return db.collections.where('id').anyOf(linkList.collectionIds).toArray();
+}
+
+// Transfer Pack Session helpers
+export async function getActiveTransferSessions(): Promise<TransferPackSession[]> {
+  return db.transferPackSessions
+    .where('status')
+    .anyOf(['processing', 'verifying', 'paused'])
+    .toArray();
+}
+
+export async function getTransferSessionForPack(packId: string): Promise<TransferPackSession | undefined> {
+  return db.transferPackSessions
+    .where('packId')
+    .equals(packId)
+    .first();
+}
+
+export async function getPlaceMatchesForSession(sessionId: string): Promise<PlaceMatchRecord[]> {
+  return db.placeMatchRecords
+    .where('sessionId')
+    .equals(sessionId)
+    .toArray();
+}
+
+export async function getPlaceMatchesByStatus(
+  sessionId: string, 
+  status: VerificationStatus
+): Promise<PlaceMatchRecord[]> {
+  return db.placeMatchRecords
+    .where('[sessionId+verificationStatus]')
+    .equals([sessionId, status])
+    .toArray();
+}
+
+export async function getPlaceMatchesByConfidence(
+  sessionId: string, 
+  confidenceLevel: ConfidenceLevel
+): Promise<PlaceMatchRecord[]> {
+  return db.placeMatchRecords
+    .where('[sessionId+confidenceLevel]')
+    .equals([sessionId, confidenceLevel])
+    .toArray();
+}
+
+export async function getAPIUsageForSession(sessionId: string): Promise<APIUsageLog[]> {
+  return db.apiUsageLog
+    .where('sessionId')
+    .equals(sessionId)
+    .toArray();
+}
+
+export async function getAPIUsageStats(
+  service: APIService,
+  startDate: Date,
+  endDate: Date
+): Promise<{ totalCalls: number; totalResponseTime: number; errorCount: number }> {
+  const logs = await db.apiUsageLog
+    .where('[service+createdAt]')
+    .between([service, startDate], [service, endDate])
+    .toArray();
+
+  return {
+    totalCalls: logs.length,
+    totalResponseTime: logs.reduce((sum, log) => sum + log.responseTimeMs, 0),
+    errorCount: logs.filter(log => log.responseStatus >= 400).length,
+  };
 }

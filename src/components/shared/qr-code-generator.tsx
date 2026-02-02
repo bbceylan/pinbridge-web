@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, forwardRef } from 'react';
 import { QRCodeCanvas, QRCodeSVG } from 'qrcode.react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -20,14 +20,14 @@ type QRFormat = 'png' | 'svg';
 type QRSize = 128 | 200 | 256 | 400 | 512;
 type QRQuality = 'L' | 'M' | 'Q' | 'H';
 
-export function QRCodeGenerator({ 
+export const QRCodeGenerator = forwardRef<HTMLDivElement, QRCodeGeneratorProps>(function QRCodeGenerator({ 
   url, 
   title = 'QR Code',
   size = 200, 
   downloadable = true,
   showCopyButton = true,
   showSettings = true
-}: QRCodeGeneratorProps) {
+}, ref) {
   const [copied, setCopied] = useState(false);
   const [downloadFormat, setDownloadFormat] = useState<QRFormat>('png');
   const [downloadSize, setDownloadSize] = useState<QRSize>(256);
@@ -101,7 +101,7 @@ export function QRCodeGenerator({
   };
 
   return (
-    <Card>
+    <Card ref={ref}>
       <CardHeader>
         <CardTitle className="text-center">{title}</CardTitle>
       </CardHeader>
@@ -250,7 +250,7 @@ export function QRCodeGenerator({
       </CardContent>
     </Card>
   );
-}
+});
 
 // Lightweight version for inline display
 export function QRCodeInline({ 

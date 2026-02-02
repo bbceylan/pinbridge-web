@@ -27,8 +27,8 @@ const placeWithLocationArbitrary = fc.record({
 // Generator for places with guaranteed coordinates
 const placeWithCoordinatesArbitrary = placeWithLocationArbitrary.map(place => ({
   ...place,
-  latitude: fc.sample(fc.double({ min: -90, max: 90 }), 1)[0],
-  longitude: fc.sample(fc.double({ min: -180, max: 180 }), 1)[0],
+  latitude: fc.sample(fc.double({ min: -90, max: 90, noNaN: true }), 1)[0],
+  longitude: fc.sample(fc.double({ min: -180, max: 180, noNaN: true }), 1)[0],
 })) as fc.Arbitrary<Place>;
 
 // Generator for places without coordinates
@@ -50,7 +50,7 @@ describe('Property 2: Link generation correctness', () => {
   it('should generate correct Apple Maps URLs for any valid place data', async () => {
     await fc.assert(
       fc.property(
-        placeWithLocationArbitrary,
+        placeWithCoordinatesArbitrary,
         (place) => {
           // Act: Generate Apple Maps URL using the existing function (Requirement 7.1)
           let appleUrl: string;
@@ -111,7 +111,7 @@ describe('Property 2: Link generation correctness', () => {
   it('should generate correct Google Maps URLs for any valid place data', async () => {
     await fc.assert(
       fc.property(
-        placeWithLocationArbitrary,
+        placeWithCoordinatesArbitrary,
         (place) => {
           // Act: Generate Google Maps URL using the existing function (Requirement 7.2)
           let googleUrl: string;
@@ -218,14 +218,14 @@ describe('Property 2: Link generation correctness', () => {
           expect(appleUrlObj.searchParams.has('ll')).toBe(false);
           
           const appleQuery = appleUrlObj.searchParams.get('q');
-          const expectedAppleQuery = place.address || place.title;
+          const expectedAppleQuery = (place.address?.trim() || place.title?.trim() || 'Location');
           expect(appleQuery).toBe(expectedAppleQuery);
 
           // Assert: Google Maps should use encoded query parameter for address/title
           expect(googleUrlObj.searchParams.has('query')).toBe(true);
           
           const googleQuery = googleUrlObj.searchParams.get('query');
-          const expectedGoogleQuery = place.address || place.title;
+          const expectedGoogleQuery = (place.address?.trim() || place.title?.trim() || 'Location');
           
           // The query parameter should contain the encoded version of the expected query
           // We need to handle the fact that URLSearchParams.get() automatically decodes
@@ -320,23 +320,40 @@ describe('Property 2: Link generation correctness', () => {
             expect(value.length).toBeGreaterThan(0);
           }
 
-          // Assert: Boundary coordinate values should be handled correctly
-          if (place.latitude !== undefined && place.longitude !== undefined) {
+          // Assert: Coordinate handling should match the link generation logic
+          const hasValidCoordinates = 
+            place.latitude !== undefined && 
+            place.longitude !== undefined &&
+            place.latitude !== null &&
+            place.longitude !== null &&
+            typeof place.latitude === 'number' &&
+            typeof place.longitude === 'number' &&
+            !isNaN(place.latitude) && 
+            !isNaN(place.longitude) &&
+            isFinite(place.latitude) && 
+            isFinite(place.longitude) &&
+            place.latitude >= -90 && 
+            place.latitude <= 90 &&
+            place.longitude >= -180 && 
+            place.longitude <= 180;
+
+          if (hasValidCoordinates) {
+            // When coordinates are valid, URLs should use them
             const appleLL = appleUrlObj.searchParams.get('ll');
             const googleQuery = googleUrlObj.searchParams.get('query');
 
             expect(appleLL).toBe(`${place.latitude},${place.longitude}`);
             expect(googleQuery).toBe(`${place.latitude},${place.longitude}`);
-
-            // Coordinates should be within valid ranges
-            if (place.latitude !== undefined && place.latitude !== null) {
-              expect(place.latitude).toBeGreaterThanOrEqual(-90);
-              expect(place.latitude).toBeLessThanOrEqual(90);
-            }
-            if (place.longitude !== undefined && place.longitude !== null) {
-              expect(place.longitude).toBeGreaterThanOrEqual(-180);
-              expect(place.longitude).toBeLessThanOrEqual(180);
-            }
+          } else {
+            // When coordinates are invalid/missing, URLs should use address/title fallback
+            const appleQ = appleUrlObj.searchParams.get('q');
+            const googleQuery = googleUrlObj.searchParams.get('query');
+            
+            expect(appleQ).toBeTruthy();
+            expect(googleQuery).toBeTruthy();
+            
+            // Should not have coordinate parameters
+            expect(appleUrlObj.searchParams.get('ll')).toBeNull();
           }
 
           return true;

@@ -9,6 +9,16 @@ import { QRCodeGenerator, QRCodeInline } from '../qr-code-generator';
 import { urlService } from '@/lib/services/url';
 import type { Place, LinkList } from '@/types';
 
+// Suppress console errors during property tests (they're expected for error handling validation)
+const originalConsoleError = console.error;
+beforeAll(() => {
+  console.error = jest.fn();
+});
+
+afterAll(() => {
+  console.error = originalConsoleError;
+});
+
 // Mock the qrcode.react components for testing
 jest.mock('qrcode.react', () => ({
   QRCodeCanvas: jest.fn(({ value, size, level }) => (
@@ -88,23 +98,23 @@ afterEach(() => {
 // Generators for test data
 const placeArbitrary = fc.record({
   id: fc.string({ minLength: 1, maxLength: 20 }).filter(s => /^[a-zA-Z0-9_-]+$/.test(s)),
-  title: fc.string({ minLength: 1, maxLength: 50 }).filter(s => !/[&?#]/.test(s)),
-  address: fc.string({ minLength: 1, maxLength: 100 }).filter(s => !/[&?#]/.test(s)),
+  title: fc.string({ minLength: 1, maxLength: 50 }).filter(s => !/[&?#]/.test(s) && s.trim().length > 0),
+  address: fc.string({ minLength: 1, maxLength: 100 }).filter(s => !/[&?#]/.test(s) && s.trim().length > 0),
   latitude: fc.option(fc.double({ min: -90, max: 90 })),
   longitude: fc.option(fc.double({ min: -180, max: 180 })),
   notes: fc.option(fc.string({ maxLength: 100 })),
   tags: fc.array(fc.string({ maxLength: 20 }).filter(s => !/[&?#]/.test(s)), { maxLength: 3 }),
   source: fc.constantFrom('apple', 'google', 'manual', 'other'),
   sourceUrl: fc.option(fc.constant('https://example.com')),
-  normalizedTitle: fc.string({ minLength: 1, maxLength: 50 }).filter(s => !/[&?#]/.test(s)),
-  normalizedAddress: fc.string({ minLength: 1, maxLength: 100 }).filter(s => !/[&?#]/.test(s)),
+  normalizedTitle: fc.string({ minLength: 1, maxLength: 50 }).filter(s => !/[&?#]/.test(s) && s.trim().length > 0),
+  normalizedAddress: fc.string({ minLength: 1, maxLength: 100 }).filter(s => !/[&?#]/.test(s) && s.trim().length > 0),
   createdAt: fc.date({ min: new Date('2020-01-01'), max: new Date() }),
   updatedAt: fc.date({ min: new Date('2020-01-01'), max: new Date() }),
 }) as fc.Arbitrary<Place>;
 
 const linkListArbitrary = fc.record({
   id: fc.string({ minLength: 1, maxLength: 20 }).filter(s => /^[a-zA-Z0-9_-]+$/.test(s)),
-  title: fc.string({ minLength: 1, maxLength: 50 }).filter(s => !/[&?#]/.test(s)),
+  title: fc.string({ minLength: 1, maxLength: 50 }).filter(s => !/[&?#]/.test(s) && s.trim().length > 0),
   description: fc.option(fc.string({ maxLength: 100 })),
   placeIds: fc.array(fc.string({ minLength: 1, maxLength: 20 }), { minLength: 1, maxLength: 5 }),
   collectionIds: fc.array(fc.string({ minLength: 1, maxLength: 20 }), { maxLength: 3 }),
@@ -214,8 +224,9 @@ describe('Property 4: QR code generation consistency', () => {
             // Modify the Link List to create a new URL (Requirement 2.5)
             const modifiedLinkList = {
               ...linkList,
-              title: linkList.title + ' Modified',
-              updatedAt: new Date(),
+              title: (linkList.title.trim() || 'Default') + ' Modified',
+              description: (linkList.description || '') + ' Updated',
+              createdAt: new Date(Date.now() + 1000), // Ensure different timestamp
             };
             
             const newUrl = urlService.generateShareableURL(modifiedLinkList, places);

@@ -24,6 +24,13 @@ PinBridge Web is a PWA that lets you:
 - **Coordinate Resolution:** Manual batch coordinate fixing
 - **Settings:** View stats, clear all data
 
+### Recent Improvements (2026)
+- **Performance Optimization:** Refactored transfer packs page with reactive database queries, eliminating redundant queries and improving page responsiveness
+- **Comprehensive Test Coverage:** Added property-based testing with fast-check framework for robust validation across all scenarios
+- **Query Efficiency:** Implemented consistent reactive architecture using useLiveQuery throughout component tree
+- **Progress Calculation Accuracy:** Enhanced progress tracking with precise calculations and edge case handling
+- **Interactive Behavior Preservation:** Maintained all existing UI behaviors while improving underlying performance
+
 ### Planned Features
 - Link list pages with QR codes
 - KML/GeoJSON/GPX export
@@ -37,6 +44,8 @@ PinBridge Web is a PWA that lets you:
 - **Storage:** IndexedDB (via Dexie.js)
 - **State:** Zustand + Dexie React Hooks (live queries)
 - **Parsing:** Papa Parse (CSV), JSZip (Takeout)
+- **Testing:** Jest + React Testing Library + fast-check (property-based testing)
+- **Architecture:** Reactive database queries with consistent useLiveQuery patterns
 
 ## Getting Started
 
@@ -49,6 +58,12 @@ npm run dev
 
 # Build for production
 npm run build
+
+# Run tests
+npm test
+
+# Run tests in watch mode
+npm run test:watch
 
 # Type check
 npm run type-check
@@ -79,7 +94,8 @@ src/
 │   ├── links/             # Apple/Google Maps link generation/parsing
 │   └── utils/             # Utilities (cn, generateId, normalize, etc.)
 ├── stores/                # Zustand stores (places, transfer-packs)
-└── types/                 # TypeScript interfaces
+├── types/                 # TypeScript interfaces
+└── __tests__/             # Comprehensive test suite with property-based testing
 ```
 
 ## Routes
@@ -103,6 +119,29 @@ src/
 - **No accounts required** for core functionality
 - **No data sent to servers** - everything stays on your device
 - **Clear deletion controls** in settings
+
+## Testing & Quality Assurance
+
+PinBridge Web uses a comprehensive testing strategy to ensure reliability and performance:
+
+### Testing Approach
+- **Property-Based Testing:** Uses fast-check framework to validate correctness across all possible input combinations
+- **Unit Tests:** Focused tests for specific edge cases and component behaviors
+- **Integration Tests:** End-to-end testing of complete page functionality
+- **Performance Testing:** Query efficiency validation and database optimization verification
+
+### Test Coverage Areas
+- **Query Efficiency:** Validates elimination of redundant database queries
+- **Automatic Reactivity:** Ensures UI updates automatically when data changes
+- **Progress Calculation Accuracy:** Verifies correct progress calculations across all scenarios
+- **Interactive Behavior Preservation:** Confirms all user interactions work correctly
+- **Completion Status Display:** Validates proper button text and status indicators
+
+### Performance Optimizations
+- **Reactive Architecture:** Consistent use of useLiveQuery for automatic data synchronization
+- **Query Isolation:** Updates to one component don't trigger unnecessary queries in others
+- **Efficient Database Patterns:** Leverages Dexie indexes for optimal query performance
+- **Minimal Re-renders:** Eliminates cascading re-render effects that caused performance issues
 
 ## License
 

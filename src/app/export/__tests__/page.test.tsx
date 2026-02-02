@@ -4,7 +4,7 @@
  * Requirements: 6.1, 6.2, 6.4
  */
 
-import { render, screen, waitFor, cleanup } from '@testing-library/react';
+import { render, screen, waitFor, cleanup, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useRouter } from 'next/navigation';
 import ExportPage from '../page';

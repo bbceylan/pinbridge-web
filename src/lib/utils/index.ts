@@ -100,14 +100,22 @@ export function formatDate(date: Date): string {
 /**
  * Format a date with time for display
  */
-export function formatDateTime(date: Date): string {
+export function formatDateTime(date: Date | string | number): string {
+  // Ensure we have a valid Date object
+  const dateObj = date instanceof Date ? date : new Date(date);
+  
+  // Check if the date is valid
+  if (isNaN(dateObj.getTime())) {
+    return 'Invalid Date';
+  }
+  
   return new Intl.DateTimeFormat('en-US', {
     year: 'numeric',
     month: 'short',
     day: 'numeric',
     hour: 'numeric',
     minute: '2-digit',
-  }).format(date);
+  }).format(dateObj);
 }
 
 /**
