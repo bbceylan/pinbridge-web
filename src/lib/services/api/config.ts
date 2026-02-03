@@ -118,7 +118,7 @@ export class APIConfigManager {
   getConfigStatus(): Record<APIService, { configured: boolean; valid: boolean; errors: string[] }> {
     const status: Record<string, any> = {};
     
-    for (const service of this.configs.keys()) {
+    for (const service of Array.from(this.configs.keys())) {
       const validation = this.validateConfig(service);
       status[service] = {
         configured: this.isConfigured(service),

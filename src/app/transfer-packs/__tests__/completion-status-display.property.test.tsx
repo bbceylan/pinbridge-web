@@ -185,7 +185,7 @@ describe('Transfer Pack Completion Status Display Properties', () => {
           await db.transferPackItems.bulkAdd(items);
 
           // Mock the store
-          (useTransferPacksStore as jest.Mock).mockReturnValue({
+          (useTransferPacksStore as unknown as jest.Mock).mockReturnValue({
             deletePack: jest.fn(),
           });
 
@@ -300,7 +300,7 @@ describe('Transfer Pack Completion Status Display Properties', () => {
           await db.transferPackItems.bulkAdd(items);
 
           // Mock the store
-          (useTransferPacksStore as jest.Mock).mockReturnValue({
+          (useTransferPacksStore as unknown as jest.Mock).mockReturnValue({
             deletePack: jest.fn(),
           });
 
@@ -367,7 +367,7 @@ describe('Transfer Pack Completion Status Display Properties', () => {
           // Intentionally not adding any items
 
           // Mock the store
-          (useTransferPacksStore as jest.Mock).mockReturnValue({
+          (useTransferPacksStore as unknown as jest.Mock).mockReturnValue({
             deletePack: jest.fn(),
           });
 
@@ -447,7 +447,7 @@ describe('Transfer Pack Completion Status Display Properties', () => {
           const isComplete = completedItems === totalItems && totalItems > 0;
 
           // Mock the store
-          (useTransferPacksStore as jest.Mock).mockReturnValue({
+          (useTransferPacksStore as unknown as jest.Mock).mockReturnValue({
             deletePack: jest.fn(),
           });
 
@@ -526,7 +526,7 @@ describe('Transfer Pack Completion Status Display Properties', () => {
           await db.transferPackItems.bulkAdd(items);
 
           // Mock the store
-          (useTransferPacksStore as jest.Mock).mockReturnValue({
+          (useTransferPacksStore as unknown as jest.Mock).mockReturnValue({
             deletePack: jest.fn(),
           });
 
@@ -648,7 +648,7 @@ describe('Transfer Pack Completion Status Display Properties', () => {
           const isComplete = completedItems === totalItems && totalItems > 0;
 
           // Mock the store
-          (useTransferPacksStore as jest.Mock).mockReturnValue({
+          (useTransferPacksStore as unknown as jest.Mock).mockReturnValue({
             deletePack: jest.fn(),
           });
 

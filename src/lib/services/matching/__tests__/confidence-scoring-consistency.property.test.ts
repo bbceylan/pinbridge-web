@@ -2,7 +2,7 @@ import { describe, it, expect } from '@jest/globals';
 import fc from 'fast-check';
 import { PlaceMatchingService } from '../place-matching';
 import { PlaceNormalizer } from '../place-normalization';
-import type { Place } from '../../../types';
+import type { Place } from '../../../../types';
 import type { NormalizedPlace } from '../../api/response-normalizer';
 
 describe('Confidence Scoring Consistency Properties', () => {
@@ -14,12 +14,12 @@ describe('Confidence Scoring Consistency Properties', () => {
     id: fc.string({ minLength: 1 }),
     title: fc.string({ minLength: 1, maxLength: 100 }),
     address: fc.string({ minLength: 1, maxLength: 200 }),
-    latitude: fc.option(fc.float({ min: -90, max: 90 })),
-    longitude: fc.option(fc.float({ min: -180, max: 180 })),
-    notes: fc.option(fc.string()),
+    latitude: fc.option(fc.float({ min: -90, max: 90 }), { nil: undefined }),
+    longitude: fc.option(fc.float({ min: -180, max: 180 }), { nil: undefined }),
+    notes: fc.option(fc.string(), { nil: undefined }),
     tags: fc.array(fc.string({ minLength: 1, maxLength: 50 }), { minLength: 0, maxLength: 3 }),
     source: fc.constantFrom('apple', 'google', 'manual', 'other'),
-    sourceUrl: fc.option(fc.string()),
+    sourceUrl: fc.option(fc.string(), { nil: undefined }),
     normalizedTitle: fc.string({ minLength: 1, maxLength: 100 }),
     normalizedAddress: fc.string({ minLength: 1, maxLength: 200 }),
     createdAt: fc.date(),
@@ -32,9 +32,9 @@ describe('Confidence Scoring Consistency Properties', () => {
     address: fc.string({ minLength: 1, maxLength: 200 }),
     latitude: fc.float({ min: -90, max: 90 }),
     longitude: fc.float({ min: -180, max: 180 }),
-    category: fc.option(fc.string({ minLength: 1, maxLength: 50 })),
-    rating: fc.option(fc.float({ min: 0, max: 5 })),
-    isOpen: fc.option(fc.boolean()),
+    category: fc.option(fc.string({ minLength: 1, maxLength: 50 }), { nil: undefined }),
+    rating: fc.option(fc.float({ min: 0, max: 5 }), { nil: undefined }),
+    isOpen: fc.option(fc.boolean(), { nil: undefined }),
     source: fc.constantFrom('apple_maps' as const, 'google_maps' as const)
   });
 
@@ -200,7 +200,7 @@ describe('Confidence Scoring Consistency Properties', () => {
             latitude: fc.constant(undefined),
             longitude: fc.constant(undefined),
             notes: fc.constant(undefined),
-            tags: fc.constant([]),
+            tags: fc.constant<string[]>([]),
             source: fc.constant('manual' as const),
             sourceUrl: fc.constant(undefined),
             normalizedTitle: fc.constant(''),
@@ -213,12 +213,12 @@ describe('Confidence Scoring Consistency Properties', () => {
             id: fc.constant('test'),
             title: fc.string({ minLength: 1000, maxLength: 2000 }),
             address: fc.string({ minLength: 1000, maxLength: 2000 }),
-            latitude: fc.option(fc.float({ min: -90, max: 90 })),
-            longitude: fc.option(fc.float({ min: -180, max: 180 })),
-            notes: fc.option(fc.string()),
+            latitude: fc.option(fc.float({ min: -90, max: 90 }), { nil: undefined }),
+            longitude: fc.option(fc.float({ min: -180, max: 180 }), { nil: undefined }),
+            notes: fc.option(fc.string(), { nil: undefined }),
             tags: fc.array(fc.string()),
             source: fc.constant('manual' as const),
-            sourceUrl: fc.option(fc.string()),
+            sourceUrl: fc.option(fc.string(), { nil: undefined }),
             normalizedTitle: fc.string({ minLength: 1000, maxLength: 2000 }),
             normalizedAddress: fc.string({ minLength: 1000, maxLength: 2000 }),
             createdAt: fc.date(),
@@ -229,12 +229,12 @@ describe('Confidence Scoring Consistency Properties', () => {
             id: fc.constant('test'),
             title: fc.string().map(s => s + '!@#$%^&*()'),
             address: fc.string().map(s => s + '!@#$%^&*()'),
-            latitude: fc.option(fc.float({ min: -90, max: 90 })),
-            longitude: fc.option(fc.float({ min: -180, max: 180 })),
-            notes: fc.option(fc.string()),
+            latitude: fc.option(fc.float({ min: -90, max: 90 }), { nil: undefined }),
+            longitude: fc.option(fc.float({ min: -180, max: 180 }), { nil: undefined }),
+            notes: fc.option(fc.string(), { nil: undefined }),
             tags: fc.array(fc.string()),
             source: fc.constant('manual' as const),
-            sourceUrl: fc.option(fc.string()),
+            sourceUrl: fc.option(fc.string(), { nil: undefined }),
             normalizedTitle: fc.string().map(s => s + '!@#$%^&*()'),
             normalizedAddress: fc.string().map(s => s + '!@#$%^&*()'),
             createdAt: fc.date(),

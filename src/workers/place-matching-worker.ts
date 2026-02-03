@@ -255,14 +255,23 @@ function calculateMatch(originalPlace: Place, candidate: NormalizedPlace, option
     rank: 0, // Will be set later when sorting
     calibrationInfo: {
       rawScore: confidenceScore,
-      adjustedScore: confidenceScore,
-      calibrationApplied: false,
+      calibratedScore: confidenceScore,
+      calibrationFactors: [],
+      qualityIndicators: {
+        dataCompleteness: 100,
+        matchConsistency: 100,
+        geographicReliability: originalPlace.latitude && originalPlace.longitude ? 100 : 50,
+      },
     },
     debugSummary: {
-      totalFactors: factors.length,
-      highestFactor: Math.max(...factors.map(f => f.score)),
-      lowestFactor: Math.min(...factors.map(f => f.score)),
-      processingTimeMs: 0,
+      totalProcessingTimeMs: 0,
+      factorContributions: factors.map((factor) => ({
+        factor: factor.type,
+        contribution: Math.round((factor.weightedScore / (confidenceScore || 1)) * 100),
+        reliability: factor.score >= 75 ? 'high' : factor.score >= 40 ? 'medium' : 'low',
+      })),
+      potentialIssues: [],
+      recommendations: [],
     },
   };
 }
@@ -397,4 +406,3 @@ self.onmessage = function(event: MessageEvent<WorkerMessage>) {
 };
 
 // Export types for TypeScript (avoid conflicts)
-export type { WorkerMessage, WorkerResponse };

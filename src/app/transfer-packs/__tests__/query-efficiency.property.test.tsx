@@ -93,7 +93,7 @@ const trackQueries = () => {
   db.transferPackItems.where = jest.fn().mockImplementation((...args) => {
     queryCount++;
     queryLog.push(`where(${args.join(', ')})`);
-    return originalWhere.apply(db.transferPackItems, args);
+    return (originalWhere as any).apply(db.transferPackItems, args);
   });
   
   return () => {

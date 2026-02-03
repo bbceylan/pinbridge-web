@@ -212,7 +212,7 @@ describe('Transfer Pack Interactive Behavior Preservation Properties', () => {
 
           // Mock the store's deletePack function
           const mockDeletePack = jest.fn().mockResolvedValue(undefined);
-          (useTransferPacksStore as jest.Mock).mockReturnValue({
+          (useTransferPacksStore as unknown as jest.Mock).mockReturnValue({
             deletePack: mockDeletePack,
           });
 
@@ -284,7 +284,7 @@ describe('Transfer Pack Interactive Behavior Preservation Properties', () => {
           }
 
           // Mock the store (not needed for navigation test but required by component)
-          (useTransferPacksStore as jest.Mock).mockReturnValue({
+          (useTransferPacksStore as unknown as jest.Mock).mockReturnValue({
             deletePack: jest.fn(),
           });
 
@@ -348,7 +348,7 @@ describe('Transfer Pack Interactive Behavior Preservation Properties', () => {
           const isComplete = doneCount === totalCount && totalCount > 0;
 
           // Mock the store
-          (useTransferPacksStore as jest.Mock).mockReturnValue({
+          (useTransferPacksStore as unknown as jest.Mock).mockReturnValue({
             deletePack: jest.fn(),
           });
 
@@ -420,7 +420,7 @@ describe('Transfer Pack Interactive Behavior Preservation Properties', () => {
 
           // Mock the store
           const mockDeletePack = jest.fn().mockResolvedValue(undefined);
-          (useTransferPacksStore as jest.Mock).mockReturnValue({
+          (useTransferPacksStore as unknown as jest.Mock).mockReturnValue({
             deletePack: mockDeletePack,
           });
 
@@ -511,7 +511,7 @@ describe('Transfer Pack Interactive Behavior Preservation Properties', () => {
           }
 
           // Mock the store
-          (useTransferPacksStore as jest.Mock).mockReturnValue({
+          (useTransferPacksStore as unknown as jest.Mock).mockReturnValue({
             deletePack: jest.fn(),
           });
 
@@ -543,6 +543,12 @@ describe('Transfer Pack Interactive Behavior Preservation Properties', () => {
           expect(packLink).toHaveAttribute('href');
           // Note: Button components may not have explicit type attributes in this UI library
           // The key behavior is that they are clickable elements
+          expect(actionButton).not.toBeNull();
+          expect(deleteButton).not.toBeNull();
+          if (!actionButton || !deleteButton) {
+            return;
+          }
+
           expect(actionButton.tagName.toLowerCase()).toBe('button');
           expect(deleteButton.tagName.toLowerCase()).toBe('button');
 

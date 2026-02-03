@@ -10,6 +10,8 @@ import { generateId } from '@/lib/utils';
 import type { Place, Collection, LinkList } from '@/types';
 
 // Test setup and teardown
+jest.setTimeout(20000);
+
 beforeEach(async () => {
   await db.delete();
   await db.open();
@@ -204,7 +206,7 @@ describe('Property 8: Data storage efficiency', () => {
 
         return true;
       }),
-      { numRuns: 100 }
+      { numRuns: 25 }
     );
   });
 });

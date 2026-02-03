@@ -21,7 +21,13 @@ global.fetch = jest.fn();
 
 // Mock environment variables
 process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY = 'pk_test_123456789';
-process.env.NODE_ENV = 'development';
+const setNodeEnv = (value: string) => {
+  Object.defineProperty(process.env, 'NODE_ENV', {
+    value,
+    configurable: true,
+  });
+};
+setNodeEnv('development');
 
 describe('PaymentService', () => {
   beforeEach(() => {
@@ -103,7 +109,7 @@ describe('PaymentService', () => {
     });
 
     it('should handle fetch errors gracefully', async () => {
-      process.env.NODE_ENV = 'production';
+      setNodeEnv('production');
       
       // Mock the plan to have a stripePriceId
       const originalGetPlan = paymentService.getPlan;
@@ -124,12 +130,12 @@ describe('PaymentService', () => {
       expect(result.success).toBe(false);
       expect(result.error).toBe('Network error');
       
-      process.env.NODE_ENV = 'development';
+      setNodeEnv('development');
       paymentService.getPlan = originalGetPlan;
     });
 
     it('should handle API errors', async () => {
-      process.env.NODE_ENV = 'production';
+      setNodeEnv('production');
       
       // Mock the plan to have a stripePriceId
       const originalGetPlan = paymentService.getPlan;
@@ -153,7 +159,7 @@ describe('PaymentService', () => {
       expect(result.success).toBe(false);
       expect(result.error).toBe('Failed to create checkout session');
       
-      process.env.NODE_ENV = 'development';
+      setNodeEnv('development');
       paymentService.getPlan = originalGetPlan;
     });
   });
@@ -255,18 +261,18 @@ describe('PaymentService', () => {
     });
 
     it('should handle API errors in production', async () => {
-      process.env.NODE_ENV = 'production';
+      setNodeEnv('production');
       (fetch as jest.Mock).mockRejectedValue(new Error('Network error'));
       
       const result = await paymentService.cancelSubscription();
       
       expect(result).toBe(false);
       
-      process.env.NODE_ENV = 'development';
+      setNodeEnv('development');
     });
 
     it('should handle API failure response', async () => {
-      process.env.NODE_ENV = 'production';
+      setNodeEnv('production');
       (fetch as jest.Mock).mockResolvedValue({
         ok: false,
         status: 400,
@@ -276,7 +282,7 @@ describe('PaymentService', () => {
       
       expect(result).toBe(false);
       
-      process.env.NODE_ENV = 'development';
+      setNodeEnv('development');
     });
   });
 

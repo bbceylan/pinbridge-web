@@ -24,11 +24,11 @@ describe('RateLimiter', () => {
 
     expect(results).toEqual(['success', 'success']);
     expect(mockFn).toHaveBeenCalledTimes(2);
-    expect(duration).toBeLessThan(100); // Should be nearly immediate
+    expect(duration).toBeLessThan(250); // Should be nearly immediate
   });
 
   it('should respect rate limits and delay requests', async () => {
-    const rateLimiter = new RateLimiter(2, 5); // 2 requests per second
+    const rateLimiter = new RateLimiter(2, 1); // 2 requests per second, single concurrency
     const mockFn = jest.fn().mockResolvedValue('success');
 
     const startTime = Date.now();

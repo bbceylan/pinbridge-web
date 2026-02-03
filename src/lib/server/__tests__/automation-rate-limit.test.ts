@@ -5,7 +5,7 @@
 import { NextRequest } from 'next/server';
 import { enforceAutomationRateLimit } from '../automation-rate-limit';
 
-type RedisValue = string | number | string[] | null;
+type RedisValue = string | number | (string | null)[] | null;
 
 function createRedisMock() {
   const strings = new Map<string, string>();

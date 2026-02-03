@@ -334,6 +334,7 @@ describe('PlaceNormalizer', () => {
     phoneNumber: '+1-555-0123',
     website: 'https://mcdonalds.com',
     businessStatus: 'OPERATIONAL',
+    source: 'google_maps',
   };
 
   describe('normalizePlaceData', () => {
@@ -434,8 +435,8 @@ describe('PlaceNormalizer', () => {
       });
       const place2 = PlaceNormalizer.normalizeApiPlace({
         ...mockApiPlace,
-        latitude: undefined,
-        longitude: undefined,
+        latitude: Number.NaN,
+        longitude: Number.NaN,
       });
       
       const similarity = PlaceNormalizer.calculateSimilarity(place1, place2);

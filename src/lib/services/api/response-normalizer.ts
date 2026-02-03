@@ -10,6 +10,7 @@ export interface NormalizedPlace extends BasePlace {
   // Normalized fields that work across all APIs
   source: 'apple_maps' | 'google_maps';
   confidence?: number; // For matching algorithms
+  url?: string;
   
   // Extended fields that may not be available in all APIs
   businessStatus?: 'OPERATIONAL' | 'CLOSED_TEMPORARILY' | 'CLOSED_PERMANENTLY';
@@ -56,6 +57,7 @@ export class ResponseNormalizer {
       website: place.website,
       rating: place.rating,
       isOpen: place.isOpen,
+      url: place.mapsUrl,
       source: 'apple_maps',
       
       // Map Apple Maps specific fields to normalized format
@@ -91,6 +93,7 @@ export class ResponseNormalizer {
       website: place.website,
       rating: place.rating,
       isOpen: place.isOpen,
+      url: place.website,
       source: 'google_maps',
       
       // Map Google Maps specific fields to normalized format

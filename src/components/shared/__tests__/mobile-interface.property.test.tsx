@@ -114,21 +114,23 @@ Object.defineProperty(navigator, 'clipboard', {
 });
 
 // Generator for valid place data
-const placeArbitrary = fc.record({
+const placeArbitraryFields = {
   id: fc.string({ minLength: 1, maxLength: 20 }).filter(s => /^[a-zA-Z0-9_-]+$/.test(s)),
   title: fc.string({ minLength: 1, maxLength: 100 }).filter(s => s.trim().length > 0),
   address: fc.string({ minLength: 1, maxLength: 200 }).filter(s => s.trim().length > 0),
-  latitude: fc.option(fc.double({ min: -90, max: 90 })),
-  longitude: fc.option(fc.double({ min: -180, max: 180 })),
-  notes: fc.option(fc.string({ maxLength: 500 })),
+  latitude: fc.option(fc.double({ min: -90, max: 90 }), { nil: undefined }),
+  longitude: fc.option(fc.double({ min: -180, max: 180 }), { nil: undefined }),
+  notes: fc.option(fc.string({ maxLength: 500 }), { nil: undefined }),
   tags: fc.array(fc.string({ minLength: 1, maxLength: 20 }), { maxLength: 5 }),
   source: fc.constantFrom('apple', 'google', 'manual', 'other'),
-  sourceUrl: fc.option(fc.webUrl()),
+  sourceUrl: fc.option(fc.webUrl(), { nil: undefined }),
   normalizedTitle: fc.string({ minLength: 1, maxLength: 100 }).filter(s => s.trim().length > 0),
   normalizedAddress: fc.string({ minLength: 1, maxLength: 200 }).filter(s => s.trim().length > 0),
   createdAt: fc.date({ min: new Date('2020-01-01'), max: new Date() }),
   updatedAt: fc.date({ min: new Date('2020-01-01'), max: new Date() }),
-}) as fc.Arbitrary<Place>;
+};
+
+const placeArbitrary = fc.record(placeArbitraryFields) as fc.Arbitrary<Place>;
 
 // Generator for screen size configurations
 const screenSizeArbitrary = fc.record({
@@ -609,7 +611,7 @@ describe('Property 5: Mobile interface optimization', () => {
       fc.asyncProperty(
         fc.record({
           place: fc.record({
-            ...placeArbitrary.value,
+            ...placeArbitraryFields,
             title: fc.oneof(
               fc.string({ minLength: 1, maxLength: 10 }), // Short title
               fc.string({ minLength: 50, maxLength: 200 }), // Very long title

@@ -34,3 +34,63 @@ global.IntersectionObserver = class IntersectionObserver {
     // Mock implementation
   }
 };
+
+// Mock Worker for jsdom-based tests that import worker pool modules.
+if (typeof global.Worker === 'undefined') {
+  global.Worker = class MockWorker {
+    constructor(script) {
+      this.script = script;
+      this.onmessage = null;
+      this.onerror = null;
+    }
+
+    postMessage(message) {
+      const respond = () => {
+        if (!this.onmessage) {
+          return;
+        }
+
+        const id = message?.id ?? 'mock';
+        let type = 'MATCH_RESULT';
+        let payload = {};
+
+        switch (message?.type) {
+          case 'CALCULATE_SIMILARITY':
+            type = 'SIMILARITY_RESULT';
+            payload = 0;
+            break;
+          case 'BATCH_MATCH':
+            type = 'BATCH_RESULT';
+            payload = { results: [] };
+            break;
+          case 'MATCH_PLACES':
+            type = 'MATCH_RESULT';
+            payload = {
+              query: message?.payload,
+              matches: [],
+              bestMatch: undefined,
+              processingTimeMs: 0,
+              metadata: {
+                totalCandidates: message?.payload?.candidatePlaces?.length ?? 0,
+                validMatches: 0,
+                averageConfidence: 0,
+              },
+            };
+            break;
+          default:
+            break;
+        }
+
+        this.onmessage({ data: { id, type, payload } });
+      };
+
+      setTimeout(respond, 0);
+    }
+
+    terminate() {}
+
+    addEventListener() {}
+
+    removeEventListener() {}
+  };
+}

@@ -48,7 +48,6 @@ describe('PlaceMatchingService Integration', () => {
         },
         types: ['park', 'point_of_interest', 'establishment'],
         businessStatus: 'OPERATIONAL',
-        source: 'google_maps',
       };
 
       // Normalize the Google Maps response
@@ -106,7 +105,6 @@ describe('PlaceMatchingService Integration', () => {
         types: ['restaurant', 'food', 'point_of_interest', 'establishment'],
         businessStatus: 'OPERATIONAL',
         priceLevel: 2,
-        source: 'google_maps',
       };
 
       const normalizedCandidate = ResponseNormalizer.normalizeGoogleMapsPlace(googleMapsPlace);
@@ -160,7 +158,6 @@ describe('PlaceMatchingService Integration', () => {
         },
         formattedAddressLines: ['1 Apple Park Way', 'Cupertino, CA 95014'],
         mapsUrl: 'https://maps.apple.com/?q=Apple%20Park',
-        source: 'apple_maps',
       };
 
       const normalizedCandidate = ResponseNormalizer.normalizeAppleMapsPlace(appleMapsPlace);
@@ -210,7 +207,6 @@ describe('PlaceMatchingService Integration', () => {
         geometry: { location: { lat: 37.7749, lng: -122.4194 } },
         types: ['cafe', 'food', 'point_of_interest'],
         businessStatus: 'OPERATIONAL',
-        source: 'google_maps',
       };
 
       // Apple Maps candidate (slightly different address)
@@ -229,7 +225,6 @@ describe('PlaceMatchingService Integration', () => {
           southLatitude: 37.7740,
         },
         formattedAddressLines: ['456 Market Street', 'San Francisco, CA 94102'],
-        source: 'apple_maps',
       };
 
       // Different place (should rank lower)
@@ -246,7 +241,6 @@ describe('PlaceMatchingService Integration', () => {
         geometry: { location: { lat: 37.7849, lng: -122.4094 } },
         types: ['cafe', 'food'],
         businessStatus: 'OPERATIONAL',
-        source: 'google_maps',
       };
 
       const candidates = [
@@ -300,7 +294,6 @@ describe('PlaceMatchingService Integration', () => {
         formattedAddress: '123 Main St, Anytown, USA',
         geometry: { location: { lat: 40.0000, lng: -75.0000 } },
         types: ['establishment'],
-        source: 'google_maps',
       };
 
       const result = await matchingService.findMatches({
@@ -354,7 +347,6 @@ describe('PlaceMatchingService Integration', () => {
             } 
           },
           types: ['restaurant', 'food'],
-          source: 'google_maps',
         };
         return ResponseNormalizer.normalizeGoogleMapsPlace(googlePlace);
       });

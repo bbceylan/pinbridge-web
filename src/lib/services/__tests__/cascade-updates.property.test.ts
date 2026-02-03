@@ -24,12 +24,12 @@ const placeArbitrary = fc.record({
   id: fc.string({ minLength: 1, maxLength: 10 }).filter(s => /^[a-zA-Z0-9_-]+$/.test(s)),
   title: fc.string({ minLength: 1, maxLength: 20 }).filter(s => s.trim().length > 0),
   address: fc.string({ minLength: 1, maxLength: 30 }).filter(s => s.trim().length > 0),
-  latitude: fc.option(fc.double({ min: -90, max: 90 })),
-  longitude: fc.option(fc.double({ min: -180, max: 180 })),
-  notes: fc.option(fc.string({ maxLength: 50 })),
+  latitude: fc.option(fc.double({ min: -90, max: 90 }), { nil: undefined }),
+  longitude: fc.option(fc.double({ min: -180, max: 180 }), { nil: undefined }),
+  notes: fc.option(fc.string({ maxLength: 50 }), { nil: undefined }),
   tags: fc.array(fc.string({ minLength: 1, maxLength: 10 }), { maxLength: 2 }),
   source: fc.constantFrom('apple', 'google', 'manual', 'other'),
-  sourceUrl: fc.option(fc.webUrl()),
+  sourceUrl: fc.option(fc.webUrl(), { nil: undefined }),
   normalizedTitle: fc.string({ minLength: 1, maxLength: 20 }),
   normalizedAddress: fc.string({ minLength: 1, maxLength: 30 }),
   createdAt: fc.date({ min: new Date('2020-01-01'), max: new Date() }),
@@ -40,7 +40,7 @@ const placeArbitrary = fc.record({
 const collectionArbitrary = fc.record({
   id: fc.string({ minLength: 1, maxLength: 10 }).filter(s => /^[a-zA-Z0-9_-]+$/.test(s)),
   name: fc.string({ minLength: 1, maxLength: 20 }).filter(s => s.trim().length > 0),
-  description: fc.option(fc.string({ maxLength: 50 })),
+  description: fc.option(fc.string({ maxLength: 50 }), { nil: undefined }),
   createdAt: fc.date({ min: new Date('2020-01-01'), max: new Date() }),
   updatedAt: fc.date({ min: new Date('2020-01-01'), max: new Date() }),
 }) as fc.Arbitrary<Collection>;
@@ -52,7 +52,7 @@ const linkListScenarioArbitrary = fc.record({
   linkListsToCreate: fc.array(
     fc.record({
       title: fc.string({ minLength: 1, maxLength: 20 }),
-      description: fc.option(fc.string({ maxLength: 30 })),
+      description: fc.option(fc.string({ maxLength: 30 }), { nil: undefined }),
       selectedPlaceIndices: fc.array(fc.integer({ min: 0, max: 1 }), { maxLength: 1 }),
       selectedCollectionIndices: fc.array(fc.integer({ min: 0, max: 0 }), { maxLength: 1 }),
     }),
@@ -271,6 +271,7 @@ describe('Property 9: Cascade updates', () => {
           linkListsToCreate: fc.array(
             fc.record({
               title: fc.string({ minLength: 1, maxLength: 20 }),
+              description: fc.option(fc.string({ maxLength: 30 }), { nil: undefined }),
               selectedPlaceIndices: fc.array(fc.integer({ min: 0, max: 1 }), { maxLength: 1 }),
               selectedCollectionIndices: fc.array(fc.integer({ min: 0, max: 0 }), { minLength: 1, maxLength: 1 }),
             }),

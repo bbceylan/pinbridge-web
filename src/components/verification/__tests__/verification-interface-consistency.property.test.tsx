@@ -68,7 +68,10 @@ describe('Verification Interface Consistency Properties', () => {
     name: fc.string({ minLength: 5, maxLength: 100 }).filter(s => s.trim().length > 0),
     target: fc.constantFrom('apple', 'google'),
     scopeType: fc.constantFrom('library', 'collection', 'filtered'),
-    scopeId: fc.option(fc.string({ minLength: 5, maxLength: 50 }).filter(s => s.trim().length > 0)),
+    scopeId: fc.option(
+      fc.string({ minLength: 5, maxLength: 50 }).filter(s => s.trim().length > 0),
+      { nil: undefined }
+    ),
     createdAt: fc.date(),
     updatedAt: fc.date()
   });
@@ -93,11 +96,11 @@ describe('Verification Interface Consistency Properties', () => {
       explanation: fc.string({ minLength: 10, maxLength: 100 })
     }), { minLength: 1, maxLength: 4 }).map(factors => JSON.stringify(factors)),
     verificationStatus: fc.constantFrom('pending', 'accepted', 'rejected', 'manual'),
-    verifiedAt: fc.option(fc.date()),
-    verifiedBy: fc.option(fc.constantFrom('user', 'bulk_action')),
-    manualSearchQuery: fc.option(fc.string({ minLength: 1, maxLength: 100 })),
-    manualSelectedPlace: fc.option(fc.string({ minLength: 1, maxLength: 500 })),
-    userNotes: fc.option(fc.string({ minLength: 1, maxLength: 200 }))
+    verifiedAt: fc.option(fc.date(), { nil: undefined }),
+    verifiedBy: fc.option(fc.constantFrom('user', 'bulk_action'), { nil: undefined }),
+    manualSearchQuery: fc.option(fc.string({ minLength: 1, maxLength: 100 }), { nil: undefined }),
+    manualSelectedPlace: fc.option(fc.string({ minLength: 1, maxLength: 500 }), { nil: undefined }),
+    userNotes: fc.option(fc.string({ minLength: 1, maxLength: 200 }), { nil: undefined })
   });
 
   describe('Property 5: Verification Interface Consistency', () => {

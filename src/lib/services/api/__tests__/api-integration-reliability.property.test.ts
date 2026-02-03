@@ -46,16 +46,18 @@ const apiConfigArbitrary = fc.record({
   rateLimitPerSecond: fc.integer({ min: 1, max: 100 }),
 }) as fc.Arbitrary<APIConfig>;
 
-const placeSearchQueryArbitrary = fc.record({
-  name: fc.option(fc.string({ minLength: 1, maxLength: 100 })),
-  address: fc.option(fc.string({ minLength: 1, maxLength: 200 })),
-  latitude: fc.option(fc.float({ min: -90, max: 90 })),
-  longitude: fc.option(fc.float({ min: -180, max: 180 })),
-  radius: fc.option(fc.integer({ min: 1, max: 50000 })),
-}).filter(query => 
-  // Ensure at least one search parameter is provided
-  query.name || query.address || (query.latitude !== null && query.longitude !== null)
-) as fc.Arbitrary<PlaceSearchQuery>;
+const placeSearchQueryArbitrary = fc
+  .record({
+    name: fc.option(fc.string({ minLength: 1, maxLength: 100 }), { nil: undefined }),
+    address: fc.option(fc.string({ minLength: 1, maxLength: 200 }), { nil: undefined }),
+    latitude: fc.option(fc.float({ min: -90, max: 90 }), { nil: undefined }),
+    longitude: fc.option(fc.float({ min: -180, max: 180 }), { nil: undefined }),
+    radius: fc.option(fc.integer({ min: 1, max: 50000 }), { nil: undefined }),
+  })
+  .filter((query) =>
+    // Ensure at least one search parameter is provided
+    Boolean(query.name || query.address || (query.latitude !== undefined && query.longitude !== undefined))
+  ) as fc.Arbitrary<PlaceSearchQuery>;
 
 const httpStatusArbitrary = fc.constantFrom(
   200, 400, 401, 403, 404, 429, 500, 502, 503, 504

@@ -21,7 +21,10 @@ Object.defineProperty(window, 'localStorage', {
 
 // Mock environment variables
 process.env.NEXT_PUBLIC_ADSENSE_CLIENT_ID = 'ca-pub-test123456789';
-process.env.NODE_ENV = 'test';
+Object.defineProperty(process.env, 'NODE_ENV', {
+  value: 'test',
+  configurable: true,
+});
 
 describe('Monetization System Properties', () => {
   beforeEach(() => {
@@ -211,7 +214,7 @@ describe('Monetization System Properties', () => {
       fc.assert(
         fc.property(
           fc.constantFrom('monthly', 'yearly', 'lifetime'),
-          fc.integer(-30, 30), // Smaller range to avoid date overflow
+          fc.integer({ min: -30, max: 30 }), // Smaller range to avoid date overflow
           (planId, daysOffset) => {
             const now = new Date();
             const expirationTime = now.getTime() + daysOffset * 24 * 60 * 60 * 1000;

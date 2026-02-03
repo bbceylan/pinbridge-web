@@ -4,7 +4,7 @@
 
 import { NextRequest } from 'next/server';
 
-type RedisValue = string | number | string[] | null;
+type RedisValue = string | number | (string | null)[] | null;
 
 function createRedisMock() {
   const strings = new Map<string, string>();

@@ -126,28 +126,28 @@ function PackCard({ pack }: { pack: TransferPack }) {
   const automatedStatus = session?.status;
 
   // Determine the appropriate action and route
-  const getActionInfo = () => {
+  const getActionInfo = (): { text: string; route: string; variant: 'default' | 'outline' | 'destructive' } => {
     if (isAutomated) {
       switch (automatedStatus) {
         case 'pending':
-          return { text: 'Start Processing', route: `/transfer-packs/${pack.id}/verify`, variant: 'default' as const };
+          return { text: 'Start Processing', route: `/transfer-packs/${pack.id}/verify`, variant: 'default' };
         case 'processing':
-          return { text: 'View Progress', route: `/transfer-packs/${pack.id}/verify`, variant: 'default' as const };
+          return { text: 'View Progress', route: `/transfer-packs/${pack.id}/verify`, variant: 'default' };
         case 'verifying':
         case 'paused':
-          return { text: 'Continue Verification', route: `/transfer-packs/${pack.id}/verify`, variant: 'default' as const };
+          return { text: 'Continue Verification', route: `/transfer-packs/${pack.id}/verify`, variant: 'default' };
         case 'completed':
-          return { text: 'View Results', route: `/transfer-packs/${pack.id}/verify`, variant: 'outline' as const };
+          return { text: 'View Results', route: `/transfer-packs/${pack.id}/verify`, variant: 'outline' };
         case 'failed':
-          return { text: 'Retry', route: `/transfer-packs/${pack.id}/verify`, variant: 'destructive' as const };
+          return { text: 'Retry', route: `/transfer-packs/${pack.id}/verify`, variant: 'destructive' };
         default:
-          return { text: 'Open', route: `/transfer-packs/${pack.id}/verify`, variant: 'default' as const };
+          return { text: 'Open', route: `/transfer-packs/${pack.id}/verify`, variant: 'default' };
       }
     } else {
       return { 
         text: isComplete ? 'Review' : 'Resume', 
         route: `/transfer-packs/${pack.id}/run`, 
-        variant: (isComplete ? 'outline' : 'default') as const 
+        variant: isComplete ? 'outline' : 'default',
       };
     }
   };

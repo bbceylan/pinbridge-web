@@ -182,7 +182,11 @@ export class GoogleMapsService extends BaseAPIService {
       return {
         success: true,
         data: cachedResponse.map(place => this.convertFromNormalized(place)),
-        rateLimitInfo: { remaining: 1000, resetTime: new Date() } // Cached response
+        rateLimitInfo: {
+          limit: this.config.rateLimitPerSecond,
+          remaining: 1000,
+          resetTime: new Date(),
+        }, // Cached response
       };
     }
 
@@ -227,8 +231,17 @@ export class GoogleMapsService extends BaseAPIService {
    */
   private convertFromNormalized(normalized: NormalizedPlace): GoogleMapsPlace {
     return {
-      placeId: normalized.id,
+      id: normalized.id,
       name: normalized.name,
+      address: normalized.address,
+      latitude: normalized.latitude,
+      longitude: normalized.longitude,
+      category: normalized.category,
+      phoneNumber: normalized.phoneNumber,
+      website: normalized.website,
+      rating: normalized.rating,
+      isOpen: normalized.isOpen,
+      placeId: normalized.id,
       formattedAddress: normalized.address,
       geometry: {
         location: {
@@ -237,8 +250,6 @@ export class GoogleMapsService extends BaseAPIService {
         },
       },
       types: normalized.types || [],
-      rating: normalized.rating,
-      website: normalized.website,
       businessStatus: 'OPERATIONAL',
     };
   }
@@ -640,9 +651,9 @@ export class GoogleMapsService extends BaseAPIService {
       }
 
       const responseText = await response.text();
-      let data: T | null = null;
+      let data: T | undefined = undefined;
       try {
-        data = responseText ? JSON.parse(responseText) : null;
+        data = responseText ? JSON.parse(responseText) : undefined;
       } catch (error) {
         console.warn('Failed to parse JSON response:', error);
       }

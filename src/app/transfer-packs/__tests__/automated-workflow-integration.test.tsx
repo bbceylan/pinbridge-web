@@ -238,7 +238,7 @@ describe('Automated Transfer Workflow Integration', () => {
         confidenceScore: 90,
         matchFactors: [
           {
-            type: 'name',
+            type: 'name' as const,
             score: 90,
             weight: 40,
             explanation: 'Good name match',
@@ -298,7 +298,7 @@ describe('Automated Transfer Workflow Integration', () => {
         confidenceScore: 30, // Low confidence
         matchFactors: [
           {
-            type: 'name',
+            type: 'name' as const,
             score: 30,
             weight: 40,
             explanation: 'Poor name match',

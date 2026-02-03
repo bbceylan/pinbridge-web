@@ -59,6 +59,7 @@ describe('PremiumPage', () => {
     // Mock window.addEventListener
     jest.spyOn(window, 'addEventListener').mockImplementation();
     jest.spyOn(window, 'removeEventListener').mockImplementation();
+    jest.spyOn(window, 'alert').mockImplementation();
   });
 
   afterEach(() => {
@@ -111,9 +112,13 @@ describe('PremiumPage', () => {
       });
       
       render(<PremiumPage />);
-      
-      const upgradeButton = screen.getAllByText('Upgrade Now')[0];
-      fireEvent.click(upgradeButton);
+
+      const upgradeButtons = screen.getAllByRole('button', { name: /Upgrade Now/i });
+      const yearlyButton = upgradeButtons[1];
+      expect(yearlyButton).toBeTruthy();
+      if (yearlyButton) {
+        fireEvent.click(yearlyButton);
+      }
       
       await waitFor(() => {
         expect(mockPaymentService.createCheckoutSession).toHaveBeenCalledWith('yearly');
@@ -143,19 +148,14 @@ describe('PremiumPage', () => {
         error: 'Payment failed',
       });
       
-      // Mock alert
-      const alertSpy = jest.spyOn(window, 'alert').mockImplementation();
-      
       render(<PremiumPage />);
       
       const upgradeButton = screen.getAllByText('Upgrade Now')[0];
       fireEvent.click(upgradeButton);
       
       await waitFor(() => {
-        expect(alertSpy).toHaveBeenCalledWith('Payment failed: Payment failed');
+        expect(window.alert).toHaveBeenCalledWith('Payment failed: Payment failed');
       });
-      
-      alertSpy.mockRestore();
     });
 
     it('should render testimonials', () => {

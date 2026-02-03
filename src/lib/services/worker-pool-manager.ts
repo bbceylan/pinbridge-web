@@ -179,7 +179,7 @@ export class WorkerPoolManager {
     this.taskQueue = [];
 
     // Terminate all workers
-    for (const workerInstance of this.workers.values()) {
+    for (const workerInstance of Array.from(this.workers.values())) {
       workerInstance.worker.terminate();
     }
     this.workers.clear();

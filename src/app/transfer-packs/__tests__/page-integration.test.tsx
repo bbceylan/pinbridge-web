@@ -223,7 +223,7 @@ const trackQueries = () => {
       queryTracker[packId] = (queryTracker[packId] || 0) + 1;
     }
     
-    return originalWhere.apply(db.transferPackItems, args);
+    return (originalWhere as any).apply(db.transferPackItems, args);
   });
   
   return () => {

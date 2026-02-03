@@ -203,6 +203,8 @@ describe('Matching Algorithm Accuracy Properties', () => {
             id: `candidate-${index}`,
             name: placeName,
             address: addr,
+            latitude: 0,
+            longitude: 0,
             category,
             source: 'google_maps',
           }));

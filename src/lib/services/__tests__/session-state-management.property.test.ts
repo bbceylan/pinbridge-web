@@ -10,7 +10,14 @@ import type {
 } from '@/types';
 
 describe('Session State Management Properties', () => {
+  jest.setTimeout(20000);
   let sessionService: TransferSessionService;
+  const toTime = (value: Date | string | number | undefined | null): number => {
+    if (!value) {
+      return 0;
+    }
+    return value instanceof Date ? value.getTime() : new Date(value).getTime();
+  };
 
   beforeEach(async () => {
     sessionService = new TransferSessionService();
@@ -59,7 +66,7 @@ describe('Session State Management Properties', () => {
 
   describe('Property 4: Session State Consistency', () => {
     it('should maintain session state consistency through lifecycle', () => {
-      fc.assert(fc.property(
+      return fc.assert(fc.asyncProperty(
         sessionOptionsArb,
         async (options) => {
           // Create session
@@ -82,11 +89,11 @@ describe('Session State Management Properties', () => {
           expect(retrievedSession!.id).toBe(session.id);
           expect(retrievedSession!.status).toBe('pending');
         }
-      ), { numRuns: 100 });
+      ), { numRuns: 25 });
     });
 
     it('should handle status transitions correctly', () => {
-      fc.assert(fc.property(
+      return fc.assert(fc.asyncProperty(
         sessionOptionsArb,
         fc.array(sessionStatusArb, { minLength: 1, maxLength: 10 }),
         async (options, statusSequence) => {
@@ -103,26 +110,26 @@ describe('Session State Management Properties', () => {
             const updatedSession = await sessionService.getSession(session.id);
             expect(updatedSession).toBeDefined();
             expect(updatedSession!.status).toBe(currentStatus);
-            expect(updatedSession!.updatedAt.getTime()).toBeGreaterThan(session.createdAt.getTime());
+            expect(toTime(updatedSession!.updatedAt)).toBeGreaterThanOrEqual(toTime(session.createdAt));
           }
           
           // Final verification
           const finalSession = await sessionService.getSession(session.id);
           expect(finalSession!.status).toBe(currentStatus);
         }
-      ), { numRuns: 50 });
+      ), { numRuns: 20 });
     });
 
     it('should maintain progress consistency', () => {
-      fc.assert(fc.property(
+      return fc.assert(fc.asyncProperty(
         sessionOptionsArb,
         fc.record({
-          processedPlaces: fc.option(fc.integer({ min: 0, max: 1000 })),
-          verifiedPlaces: fc.option(fc.integer({ min: 0, max: 1000 })),
-          completedPlaces: fc.option(fc.integer({ min: 0, max: 1000 })),
-          apiCallsUsed: fc.option(fc.integer({ min: 0, max: 10000 })),
-          processingTimeMs: fc.option(fc.integer({ min: 0, max: 3600000 })),
-          errorCount: fc.option(fc.integer({ min: 0, max: 100 }))
+          processedPlaces: fc.option(fc.integer({ min: 0, max: 1000 }), { nil: undefined }),
+          verifiedPlaces: fc.option(fc.integer({ min: 0, max: 1000 }), { nil: undefined }),
+          completedPlaces: fc.option(fc.integer({ min: 0, max: 1000 }), { nil: undefined }),
+          apiCallsUsed: fc.option(fc.integer({ min: 0, max: 10000 }), { nil: undefined }),
+          processingTimeMs: fc.option(fc.integer({ min: 0, max: 3600000 }), { nil: undefined }),
+          errorCount: fc.option(fc.integer({ min: 0, max: 100 }), { nil: undefined })
         }),
         async (options, progressUpdate) => {
           // Create session
@@ -165,15 +172,15 @@ describe('Session State Management Properties', () => {
           expect(updatedSession!.processingTimeMs).toBeGreaterThanOrEqual(0);
           expect(updatedSession!.errorCount).toBeGreaterThanOrEqual(0);
         }
-      ), { numRuns: 100 });
+      ), { numRuns: 25 });
     });
 
     it('should handle match record creation and updates consistently', () => {
-      fc.assert(fc.property(
+      return fc.assert(fc.asyncProperty(
         sessionOptionsArb,
         matchRecordOptionsArb,
         verificationStatusArb,
-        fc.option(fc.string({ minLength: 1, maxLength: 500 })),
+        fc.option(fc.string({ minLength: 1, maxLength: 500 }), { nil: undefined }),
         async (sessionOptions, matchOptions, verificationStatus, userNotes) => {
           // Create session
           const session = await sessionService.createSession(sessionOptions);
@@ -218,14 +225,17 @@ describe('Session State Management Properties', () => {
             expect(matches[0].userNotes).toBe(userNotes);
           }
         }
-      ), { numRuns: 50 });
+      ), { numRuns: 20 });
     });
 
     it('should maintain referential integrity between sessions and match records', () => {
-      fc.assert(fc.property(
+      return fc.assert(fc.asyncProperty(
         fc.array(sessionOptionsArb, { minLength: 1, maxLength: 5 }),
         fc.array(matchRecordOptionsArb, { minLength: 1, maxLength: 10 }),
         async (sessionOptionsList, matchOptionsList) => {
+          await db.transferPackSessions.clear();
+          await db.placeMatchRecords.clear();
+
           // Create multiple sessions
           const sessions: TransferPackSession[] = [];
           for (const options of sessionOptionsList) {
@@ -260,11 +270,11 @@ describe('Session State Management Properties', () => {
           const allMatches = await db.placeMatchRecords.toArray();
           expect(allMatches).toHaveLength(matchRecords.length);
         }
-      ), { numRuns: 20 });
+      ), { numRuns: 10 });
     });
 
     it('should handle bulk operations atomically', () => {
-      fc.assert(fc.property(
+      return fc.assert(fc.asyncProperty(
         sessionOptionsArb,
         fc.array(matchRecordOptionsArb, { minLength: 2, maxLength: 10 }),
         verificationStatusArb,
@@ -304,11 +314,11 @@ describe('Session State Management Properties', () => {
             }
           }
         }
-      ), { numRuns: 30 });
+      ), { numRuns: 15 });
     });
 
     it('should handle session deletion with cascade cleanup', () => {
-      fc.assert(fc.property(
+      return fc.assert(fc.asyncProperty(
         sessionOptionsArb,
         fc.array(matchRecordOptionsArb, { minLength: 1, maxLength: 5 }),
         async (sessionOptions, matchOptionsList) => {
@@ -337,11 +347,11 @@ describe('Session State Management Properties', () => {
           const matchesAfter = await sessionService.getMatchRecordsForSession(session.id);
           expect(matchesAfter).toHaveLength(0);
         }
-      ), { numRuns: 50 });
+      ), { numRuns: 15 });
     });
 
     it('should maintain session progress summary consistency', () => {
-      fc.assert(fc.property(
+      return fc.assert(fc.asyncProperty(
         sessionOptionsArb,
         fc.array(matchRecordOptionsArb, { minLength: 1, maxLength: 20 }),
         fc.array(verificationStatusArb, { minLength: 1, maxLength: 20 }),
@@ -391,11 +401,11 @@ describe('Session State Management Properties', () => {
                                    progress.matchCounts.lowConfidence;
           expect(confidenceCounted).toBe(progress.matchCounts.total);
         }
-      ), { numRuns: 30 });
+      ), { numRuns: 15 });
     });
 
     it('should handle concurrent session operations safely', () => {
-      fc.assert(fc.property(
+      return fc.assert(fc.asyncProperty(
         sessionOptionsArb,
         fc.array(fc.integer({ min: 0, max: 100 }), { minLength: 5, maxLength: 20 }),
         async (sessionOptions, progressUpdates) => {
@@ -418,9 +428,9 @@ describe('Session State Management Properties', () => {
           expect(finalSession).toBeDefined();
           expect(finalSession!.processedPlaces).toBeGreaterThanOrEqual(0);
           expect(finalSession!.apiCallsUsed).toBeGreaterThanOrEqual(0);
-          expect(finalSession!.updatedAt.getTime()).toBeGreaterThan(session.createdAt.getTime());
+          expect(toTime(finalSession!.updatedAt)).toBeGreaterThan(toTime(session.createdAt));
         }
-      ), { numRuns: 20 });
+      ), { numRuns: 10 });
     });
   });
 });

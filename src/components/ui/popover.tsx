@@ -32,7 +32,15 @@ export const PopoverTrigger = React.forwardRef<HTMLElement, PopoverTriggerProps>
 
 PopoverTrigger.displayName = 'PopoverTrigger';
 
-export const PopoverContent = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
+type PopoverSide = 'top' | 'right' | 'bottom' | 'left';
+type PopoverAlign = 'start' | 'center' | 'end';
+
+export interface PopoverContentProps extends React.HTMLAttributes<HTMLDivElement> {
+  side?: PopoverSide;
+  align?: PopoverAlign;
+}
+
+export const PopoverContent = React.forwardRef<HTMLDivElement, PopoverContentProps>(
   ({ className, ...props }, ref) => {
     return (
       <div

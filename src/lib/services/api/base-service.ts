@@ -116,17 +116,17 @@ export abstract class BaseAPIService {
     return this.cache.generateKey(this.serviceName, endpoint, params);
   }
 
-  private async safeParseJSON<T>(response: Response): Promise<T | null> {
+  protected async safeParseJSON<T>(response: Response): Promise<T | undefined> {
     try {
       const text = await response.text();
-      return text ? JSON.parse(text) : null;
+      return text ? JSON.parse(text) : undefined;
     } catch (error) {
       console.warn('Failed to parse JSON response:', error);
-      return null;
+      return undefined;
     }
   }
 
-  private async logAPIUsage(
+  protected async logAPIUsage(
     endpoint: string,
     requestData: any,
     responseStatus: number,

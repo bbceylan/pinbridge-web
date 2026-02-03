@@ -165,7 +165,11 @@ export class AppleMapsService extends BaseAPIService {
       return {
         success: true,
         data: cachedResponse.map(place => this.convertFromNormalized(place)),
-        rateLimitInfo: { remaining: 1000, resetTime: new Date() } // Cached response
+        rateLimitInfo: {
+          limit: this.config.rateLimitPerSecond,
+          remaining: 1000,
+          resetTime: new Date(),
+        }, // Cached response
       };
     }
 
@@ -180,7 +184,7 @@ export class AppleMapsService extends BaseAPIService {
     );
 
     if (!response.success || !response.data) {
-      return response as APIResponse<AppleMapsPlace[]>;
+      return { success: false, error: response.error };
     }
 
     const normalizedPlaces = response.data.results.map(result => 
@@ -196,7 +200,7 @@ export class AppleMapsService extends BaseAPIService {
     return {
       success: true,
       data: normalizedPlaces,
-      rateLimitInfo: response.rateLimitInfo
+      rateLimitInfo: response.rateLimitInfo,
     };
   }
 
@@ -207,19 +211,17 @@ export class AppleMapsService extends BaseAPIService {
     return {
       id: normalized.id,
       name: normalized.name,
-      coordinate: {
-        latitude: normalized.latitude,
-        longitude: normalized.longitude,
-      },
-      formattedAddressLines: [normalized.address],
-      structuredAddress: {
-        fullThoroughfare: normalized.address,
-      },
-      mapsUrl: normalized.url,
-      telephone: normalized.phoneNumber,
-      rating: normalized.rating,
-      categories: normalized.types,
+      address: normalized.address,
+      latitude: normalized.latitude,
+      longitude: normalized.longitude,
+      category: normalized.category,
+      phoneNumber: normalized.phoneNumber,
       website: normalized.website,
+      rating: normalized.rating,
+      mapsUrl: normalized.url,
+      formattedAddressLines: [normalized.address],
+      telephone: normalized.phoneNumber,
+      photos: normalized.photos,
     };
   }
 
@@ -237,7 +239,7 @@ export class AppleMapsService extends BaseAPIService {
     );
 
     if (!response.success || !response.data) {
-      return response as APIResponse<AppleMapsPlace>;
+      return { success: false, error: response.error };
     }
 
     const normalizedPlace = this.normalizePlaceDetails(response.data.place);
@@ -245,7 +247,7 @@ export class AppleMapsService extends BaseAPIService {
     return {
       success: true,
       data: normalizedPlace,
-      rateLimitInfo: response.rateLimitInfo
+      rateLimitInfo: response.rateLimitInfo,
     };
   }
 
@@ -543,37 +545,4 @@ export class AppleMapsService extends BaseAPIService {
     }
   }
 
-  private async safeParseJSON<T>(response: Response): Promise<T | null> {
-    try {
-      const text = await response.text();
-      return text ? JSON.parse(text) : null;
-    } catch (error) {
-      console.warn('Failed to parse JSON response:', error);
-      return null;
-    }
-  }
-
-  private async logAPIUsage(
-    endpoint: string,
-    requestData: any,
-    responseStatus: number,
-    responseTimeMs: number
-  ): Promise<void> {
-    try {
-      const { db } = await import('@/lib/db');
-      const log = {
-        id: `${this.serviceName}_${Date.now()}_${Math.random()}`,
-        service: this.serviceName,
-        endpoint,
-        requestData: requestData ? JSON.parse(requestData) : null,
-        responseStatus,
-        responseTimeMs,
-        createdAt: new Date(),
-      };
-
-      await db.apiUsageLog.add(log);
-    } catch (error) {
-      console.warn('Failed to log API usage:', error);
-    }
-  }
 }

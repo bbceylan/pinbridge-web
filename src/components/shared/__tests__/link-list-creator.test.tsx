@@ -16,6 +16,8 @@ import type { Place, Collection } from '@/types';
 jest.mock('@/lib/services/link-list');
 const mockLinkListService = linkListService as jest.Mocked<typeof linkListService>;
 
+jest.setTimeout(15000);
+
 // Test setup and teardown
 beforeEach(async () => {
   await db.delete();

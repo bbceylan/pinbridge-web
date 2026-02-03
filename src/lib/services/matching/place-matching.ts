@@ -112,6 +112,8 @@ export interface MatchingResult {
     totalCandidates: number;
     validMatches: number;
     averageConfidence: number;
+    options?: Required<MatchingOptions>;
+    cached?: boolean;
   };
 }
 
@@ -1427,7 +1429,7 @@ export class PlaceMatchingService {
       address: this.normalizeAddress(place.address),
       coordinates:
         Number.isFinite(place.latitude) && Number.isFinite(place.longitude)
-        ? { latitude: place.latitude, longitude: place.longitude }
+        ? { latitude: place.latitude!, longitude: place.longitude! }
         : undefined,
       category: place.tags?.[0], // Use first tag as category
     };

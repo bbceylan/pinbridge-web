@@ -131,7 +131,7 @@ describe('AdService', () => {
       const placements = adService.getAdPlacementsForPage('/');
       expect(placements.length).toBeGreaterThan(0);
       
-      const hasHeaderBanner = placements.some(p => p.id === 'header-banner');
+      const hasHeaderBanner = placements.some((p: { id?: string }) => p.id === 'header-banner');
       expect(hasHeaderBanner).toBe(true);
     });
 
@@ -139,14 +139,14 @@ describe('AdService', () => {
       const placements = adService.getAdPlacementsForPage('/transfer-packs');
       expect(placements.length).toBeGreaterThan(0);
       
-      const hasNativeAd = placements.some(p => p.type === 'native');
+      const hasNativeAd = placements.some((p: { type?: string }) => p.type === 'native');
       expect(hasNativeAd).toBe(true);
     });
 
     it('should exclude placements for verification pages', () => {
       const placements = adService.getAdPlacementsForPage('/transfer-packs/123/verify');
       
-      const hasHeaderBanner = placements.some(p => p.id === 'header-banner');
+      const hasHeaderBanner = placements.some((p: { id?: string }) => p.id === 'header-banner');
       expect(hasHeaderBanner).toBe(false);
     });
 
