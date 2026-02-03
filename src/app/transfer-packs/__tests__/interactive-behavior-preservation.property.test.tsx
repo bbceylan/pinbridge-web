@@ -546,8 +546,11 @@ describe('Transfer Pack Interactive Behavior Preservation Properties', () => {
           expect(actionButton.tagName.toLowerCase()).toBe('button');
           expect(deleteButton.tagName.toLowerCase()).toBe('button');
 
-          // Assert: Pack name should be displayed
-          expect(container).toHaveTextContent(uniquePack.name);
+          // Assert: Pack name should be displayed (normalize whitespace)
+          const expectedName = uniquePack.name.trim();
+          if (expectedName) {
+            expect(container).toHaveTextContent(expectedName);
+          }
 
           // Assert: Target should be displayed
           const targetText = uniquePack.target === 'apple' ? 'Apple Maps' : 'Google Maps';

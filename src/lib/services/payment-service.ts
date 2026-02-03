@@ -225,7 +225,11 @@ class PaymentService {
 
       // Check if subscription is still valid
       if (subscription.expiresAt && new Date(subscription.expiresAt) < new Date()) {
-        // Subscription expired
+        // Subscription expired - clear local state immediately
+        localStorage.removeItem('pinbridge_premium');
+        localStorage.removeItem('pinbridge_subscription');
+        window.dispatchEvent(new CustomEvent('subscription-updated', { detail: null }));
+        // Fire and forget server-side cancellation
         this.cancelSubscription();
         return { isActive: false };
       }

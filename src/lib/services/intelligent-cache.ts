@@ -67,6 +67,10 @@ export class IntelligentCache {
     const startTime = Date.now();
     
     try {
+      if (!db?.cacheEntries) {
+        this.stats.misses++;
+        return null;
+      }
       const entry = await db.cacheEntries.get(key);
       
       if (!entry) {
@@ -108,6 +112,9 @@ export class IntelligentCache {
       tags?: string[];
     } = {}
   ): Promise<void> {
+    if (!db?.cacheEntries) {
+      return;
+    }
     const ttl = options.ttl || this.config.defaultTTL;
     const tags = options.tags || [];
     const size = this.calculateSize(data);
@@ -134,6 +141,7 @@ export class IntelligentCache {
    * Delete cached entry by key
    */
   async delete(key: string): Promise<void> {
+    if (!db?.cacheEntries) return;
     await db.cacheEntries.delete(key);
   }
 
@@ -141,6 +149,7 @@ export class IntelligentCache {
    * Clear all cached entries
    */
   async clear(): Promise<void> {
+    if (!db?.cacheEntries) return;
     await db.cacheEntries.clear();
     this.resetStats();
   }
@@ -149,6 +158,7 @@ export class IntelligentCache {
    * Invalidate cache entries by tags
    */
   async invalidateByTags(tags: string[]): Promise<number> {
+    if (!db?.cacheEntries) return 0;
     const entries = await db.cacheEntries
       .filter(entry => entry.tags.some(tag => tags.includes(tag)))
       .toArray();
@@ -161,6 +171,17 @@ export class IntelligentCache {
    * Get cache statistics
    */
   async getStats(): Promise<CacheStats> {
+    if (!db?.cacheEntries) {
+      return {
+        totalEntries: 0,
+        totalSize: 0,
+        hitRate: 0,
+        missRate: 0,
+        averageAccessTime: 0,
+        oldestEntry: null,
+        newestEntry: null,
+      };
+    }
     const entries = await db.cacheEntries.toArray();
     const totalEntries = entries.length;
     const totalSize = entries.reduce((sum, entry) => sum + entry.size, 0);
@@ -191,6 +212,7 @@ export class IntelligentCache {
    * Cleanup expired entries
    */
   async cleanup(): Promise<number> {
+    if (!db?.cacheEntries) return 0;
     const now = new Date();
     const expiredEntries = await db.cacheEntries
       .filter(entry => entry.expiresAt < now)
@@ -207,6 +229,7 @@ export class IntelligentCache {
    * Ensure cache doesn't exceed size limits
    */
   private async ensureCacheSize(newEntrySize: number): Promise<void> {
+    if (!db?.cacheEntries) return;
     const stats = await this.getStats();
     
     // If adding this entry would exceed limits, remove old entries

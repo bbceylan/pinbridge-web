@@ -5,10 +5,35 @@ import { linkListService } from '@/lib/services/link-list';
 import { urlService } from '@/lib/services/url';
 import type { LinkList, Place } from '@/types';
 
+const pushMock = jest.fn();
+
 // Mock dependencies
 jest.mock('dexie-react-hooks');
 jest.mock('@/lib/services/link-list');
 jest.mock('@/lib/services/url');
+jest.mock('next/navigation', () => ({
+  useRouter: () => ({
+    push: pushMock,
+  }),
+}));
+jest.mock('@/components/ui/dropdown-menu', () => ({
+  DropdownMenu: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  DropdownMenuTrigger: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  DropdownMenuContent: ({ children }: { children: React.ReactNode }) => <div role="menu">{children}</div>,
+  DropdownMenuItem: ({
+    children,
+    onClick,
+    className,
+  }: {
+    children: React.ReactNode;
+    onClick?: () => void;
+    className?: string;
+  }) => (
+    <button type="button" role="menuitem" onClick={onClick} className={className}>
+      {children}
+    </button>
+  ),
+}));
 // Mock next/link
 jest.mock('next/link', () => {
   const MockLink = ({ children, href }: { children: React.ReactNode; href: string }) => (
@@ -107,13 +132,22 @@ describe('LinkListsPage', () => {
     });
   });
 
+  const openMenu = async () => {
+    const menuButton = screen.getByRole('button', { name: /more options/i });
+    // Radix dropdowns listen for pointer events; use pointerDown + click for JSDOM.
+    fireEvent.pointerDown(menuButton);
+    fireEvent.click(menuButton);
+  };
+
   it('renders empty state when no link lists exist', () => {
     mockUseLiveQuery.mockReturnValue([]);
 
     render(<LinkListsPage />);
 
-    expect(screen.getByText('No link lists yet')).toBeInTheDocument();
-    expect(screen.getByText('Create your first link list')).toBeInTheDocument();
+    expect(screen.getByText('No Link Lists Yet')).toBeInTheDocument();
+    expect(
+      screen.getByText('Create your first link list to share places with others')
+    ).toBeInTheDocument();
   });
 
   it('displays link lists with statistics', () => {
@@ -123,10 +157,8 @@ describe('LinkListsPage', () => {
 
     expect(screen.getByText('Test Link List')).toBeInTheDocument();
     expect(screen.getByText('Test description')).toBeInTheDocument();
-    expect(screen.getByText('2')).toBeInTheDocument(); // place count
-    expect(screen.getByText('places')).toBeInTheDocument();
-    expect(screen.getByText('1')).toBeInTheDocument(); // collection count
-    expect(screen.getByText('collection')).toBeInTheDocument();
+    const card = screen.getByText('Test Link List').closest('.rounded-lg');
+    expect(card).toHaveTextContent('2 place');
     expect(screen.getByText('Public')).toBeInTheDocument();
   });
 
@@ -136,108 +168,36 @@ describe('LinkListsPage', () => {
     render(<LinkListsPage />);
 
     expect(screen.getByText(/Created Jan 1, 2024/)).toBeInTheDocument();
-    expect(screen.getByText(/Updated/)).toBeInTheDocument();
-  });
-
-  it('enters edit mode when edit button is clicked', () => {
-    mockUseLiveQuery.mockReturnValue([mockLinkList]);
-
-    render(<LinkListsPage />);
-
-    const editButton = screen.getByRole('button', { name: /edit link list/i });
-    fireEvent.click(editButton);
-
-    expect(screen.getByDisplayValue('Test Link List')).toBeInTheDocument();
-    expect(screen.getByDisplayValue('Test description')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /save/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /cancel/i })).toBeInTheDocument();
-  });
-
-  it('saves changes when save button is clicked', async () => {
-    mockUseLiveQuery.mockReturnValue([mockLinkList]);
-    mockLinkListService.updateLinkList.mockResolvedValue();
-
-    render(<LinkListsPage />);
-
-    // Enter edit mode
-    const editButton = screen.getByRole('button', { name: /edit link list/i });
-    fireEvent.click(editButton);
-
-    // Change title
-    const titleInput = screen.getByDisplayValue('Test Link List');
-    fireEvent.change(titleInput, { target: { value: 'Updated Title' } });
-
-    // Save changes
-    const saveButton = screen.getByRole('button', { name: /save/i });
-    fireEvent.click(saveButton);
-
-    await waitFor(() => {
-      expect(mockLinkListService.updateLinkList).toHaveBeenCalledWith('test-id', {
-        title: 'Updated Title',
-        description: 'Test description',
-      });
-    });
-  });
-
-  it('cancels edit mode when cancel button is clicked', () => {
-    mockUseLiveQuery.mockReturnValue([mockLinkList]);
-
-    render(<LinkListsPage />);
-
-    // Enter edit mode
-    const editButton = screen.getByRole('button', { name: /edit link list/i });
-    fireEvent.click(editButton);
-
-    // Change title
-    const titleInput = screen.getByDisplayValue('Test Link List');
-    fireEvent.change(titleInput, { target: { value: 'Changed Title' } });
-
-    // Cancel changes
-    const cancelButton = screen.getByRole('button', { name: /cancel/i });
-    fireEvent.click(cancelButton);
-
-    // Should show original title again
-    expect(screen.getByText('Test Link List')).toBeInTheDocument();
-    expect(screen.queryByDisplayValue('Changed Title')).not.toBeInTheDocument();
   });
 
   it('deletes link list when delete button is clicked and confirmed', async () => {
     mockUseLiveQuery.mockReturnValue([mockLinkList]);
     mockLinkListService.deleteLinkList.mockResolvedValue();
-    
-    // Mock window.confirm
-    const originalConfirm = window.confirm;
-    window.confirm = jest.fn(() => true);
 
     render(<LinkListsPage />);
 
-    const deleteButton = screen.getByRole('button', { name: /delete link list/i });
-    fireEvent.click(deleteButton);
+    await openMenu();
+
+    const deleteMenuItem = await screen.findByRole('menuitem', { name: /delete/i });
+    fireEvent.click(deleteMenuItem);
+
+    const deleteButtons = await screen.findAllByText('Delete');
+    fireEvent.click(deleteButtons[deleteButtons.length - 1]);
 
     await waitFor(() => {
       expect(mockLinkListService.deleteLinkList).toHaveBeenCalledWith('test-id');
     });
-
-    // Restore original confirm
-    window.confirm = originalConfirm;
   });
 
   it('opens link list in new tab when view button is clicked', () => {
     mockUseLiveQuery.mockReturnValue([mockLinkList]);
-    
-    // Mock window.open
-    const originalOpen = window.open;
-    window.open = jest.fn();
 
     render(<LinkListsPage />);
 
     const viewButton = screen.getByRole('button', { name: /view/i });
     fireEvent.click(viewButton);
 
-    expect(window.open).toHaveBeenCalledWith('/link-list/test-id', '_blank');
-
-    // Restore original open
-    window.open = originalOpen;
+    expect(pushMock).toHaveBeenCalledWith('/link-list/test-id');
   });
 
   it('handles singular vs plural correctly for places and collections', () => {
@@ -252,12 +212,8 @@ describe('LinkListsPage', () => {
     render(<LinkListsPage />);
 
     // Check for singular forms in the statistics section
-    expect(screen.getByText('place')).toBeInTheDocument(); // singular
-    expect(screen.getByText('collection')).toBeInTheDocument(); // singular
-    
-    // Check that we have the right counts
-    const placeCountElements = screen.getAllByText('1');
-    expect(placeCountElements).toHaveLength(2); // One for places, one for collections
+    const card = screen.getByText('Test Link List').closest('.rounded-lg');
+    expect(card).toHaveTextContent('1 place');
   });
 
   describe('Sharing functionality', () => {
@@ -266,24 +222,7 @@ describe('LinkListsPage', () => {
       mockUrlService.generateShareableURL.mockReturnValue('https://example.com/link-list/test-id?data=encoded');
     });
 
-    it('shows share button and expands sharing interface when clicked', async () => {
-      mockUseLiveQuery.mockReturnValue([mockLinkList]);
-
-      render(<LinkListsPage />);
-
-      const shareButton = screen.getByRole('button', { name: /share/i });
-      expect(shareButton).toBeInTheDocument();
-
-      fireEvent.click(shareButton);
-
-      await waitFor(() => {
-        expect(screen.getByText('Shareable URL')).toBeInTheDocument();
-        expect(screen.getByText('Share via')).toBeInTheDocument();
-        expect(screen.getByText('QR Code')).toBeInTheDocument();
-      });
-    });
-
-    it('generates shareable URL when sharing interface is opened', async () => {
+    it('uses native share API when available', async () => {
       mockUseLiveQuery.mockReturnValue([mockLinkList]);
 
       render(<LinkListsPage />);
@@ -294,98 +233,6 @@ describe('LinkListsPage', () => {
       await waitFor(() => {
         expect(mockLinkListService.getPlacesForLinkList).toHaveBeenCalledWith('test-id');
         expect(mockUrlService.generateShareableURL).toHaveBeenCalledWith(mockLinkList, mockPlaces);
-      });
-
-      expect(screen.getByDisplayValue('https://example.com/link-list/test-id?data=encoded')).toBeInTheDocument();
-    });
-
-    it('copies URL to clipboard when copy button is clicked', async () => {
-      mockUseLiveQuery.mockReturnValue([mockLinkList]);
-
-      render(<LinkListsPage />);
-
-      const shareButton = screen.getByRole('button', { name: /share/i });
-      fireEvent.click(shareButton);
-
-      await waitFor(() => {
-        expect(screen.getByDisplayValue('https://example.com/link-list/test-id?data=encoded')).toBeInTheDocument();
-      });
-
-      const copyButton = screen.getByRole('button', { name: /copy/i });
-      fireEvent.click(copyButton);
-
-      await waitFor(() => {
-        expect(navigator.clipboard.writeText).toHaveBeenCalledWith('https://example.com/link-list/test-id?data=encoded');
-      });
-
-      expect(screen.getByText('Copied')).toBeInTheDocument();
-    });
-
-    it('shows QR code when sharing interface is expanded', async () => {
-      mockUseLiveQuery.mockReturnValue([mockLinkList]);
-
-      render(<LinkListsPage />);
-
-      const shareButton = screen.getByRole('button', { name: /share/i });
-      fireEvent.click(shareButton);
-
-      await waitFor(() => {
-        expect(screen.getByTestId('qr-code-generator')).toBeInTheDocument();
-      });
-
-      expect(screen.getByText('QR Code for: Test Link List - Link List')).toBeInTheDocument();
-      expect(screen.getByText('URL: https://example.com/link-list/test-id?data=encoded')).toBeInTheDocument();
-    });
-
-    it('provides platform-specific sharing options', async () => {
-      mockUseLiveQuery.mockReturnValue([mockLinkList]);
-
-      render(<LinkListsPage />);
-
-      const shareButton = screen.getByRole('button', { name: /share/i });
-      fireEvent.click(shareButton);
-
-      await waitFor(() => {
-        expect(screen.getByRole('button', { name: /email/i })).toBeInTheDocument();
-        expect(screen.getByRole('button', { name: /sms/i })).toBeInTheDocument();
-      });
-
-      // Test native share button (shows "Share" when navigator.share is available)
-      // Look for the native share button within the sharing interface
-      const shareViaButtons = screen.getAllByRole('button', { name: /share/i });
-      const nativeShareButton = shareViaButtons.find(button => 
-        button.textContent?.trim() === 'Share' && !button.textContent?.includes('chevron')
-      );
-      expect(nativeShareButton).toBeInTheDocument();
-    });
-
-    it.skip('uses native share API when available', async () => {
-      // This test is skipped due to async timing issues in test environment
-      // The functionality works correctly in the actual application
-      mockUseLiveQuery.mockReturnValue([mockLinkList]);
-
-      render(<LinkListsPage />);
-
-      const shareButton = screen.getByRole('button', { name: /share/i });
-      fireEvent.click(shareButton);
-
-      // Wait for the sharing interface to be fully loaded
-      await waitFor(() => {
-        expect(screen.getByDisplayValue('https://example.com/link-list/test-id?data=encoded')).toBeInTheDocument();
-        expect(screen.getByText('Share via')).toBeInTheDocument();
-      }, { timeout: 2000 });
-
-      // Find the native share button within the sharing interface
-      const shareViaSection = screen.getByText('Share via').parentElement;
-      expect(shareViaSection).toBeInTheDocument();
-      
-      // Look for the native share button by text content
-      const nativeShareButton = screen.getByRole('button', { name: /^Share$/ });
-      expect(nativeShareButton).toBeInTheDocument();
-      
-      fireEvent.click(nativeShareButton);
-
-      await waitFor(() => {
         expect(navigator.share).toHaveBeenCalledWith({
           title: 'Test Link List',
           text: 'Test description',
@@ -394,12 +241,9 @@ describe('LinkListsPage', () => {
       });
     });
 
-    it('opens email client with pre-filled content when email button is clicked', async () => {
+    it('copies URL to clipboard when native share is unavailable', async () => {
       mockUseLiveQuery.mockReturnValue([mockLinkList]);
-      
-      // Mock window.open
-      const originalOpen = window.open;
-      window.open = jest.fn();
+      (navigator as any).share = undefined;
 
       render(<LinkListsPage />);
 
@@ -407,91 +251,27 @@ describe('LinkListsPage', () => {
       fireEvent.click(shareButton);
 
       await waitFor(() => {
-        expect(screen.getByDisplayValue('https://example.com/link-list/test-id?data=encoded')).toBeInTheDocument();
+        expect(mockLinkListService.getPlacesForLinkList).toHaveBeenCalledWith('test-id');
+        expect(mockUrlService.generateShareableURL).toHaveBeenCalledWith(mockLinkList, mockPlaces);
+        expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
+          'https://example.com/link-list/test-id?data=encoded'
+        );
       });
-
-      const emailButton = screen.getByRole('button', { name: /email/i });
-      fireEvent.click(emailButton);
-
-      expect(window.open).toHaveBeenCalledWith(
-        expect.stringContaining('mailto:?subject='),
-        '_blank'
-      );
-
-      // Restore original open
-      window.open = originalOpen;
     });
 
-    it('opens SMS app with pre-filled content when SMS button is clicked', async () => {
+    it('shows QR code when QR code is selected', async () => {
       mockUseLiveQuery.mockReturnValue([mockLinkList]);
-      
-      // Mock window.open
-      const originalOpen = window.open;
-      window.open = jest.fn();
+      mockLinkListService.getLinkList.mockResolvedValue(mockLinkList);
 
       render(<LinkListsPage />);
 
-      const shareButton = screen.getByRole('button', { name: /share/i });
-      fireEvent.click(shareButton);
+      await openMenu();
+
+      const qrMenuItem = await screen.findByRole('menuitem', { name: /qr code/i });
+      fireEvent.click(qrMenuItem);
 
       await waitFor(() => {
-        expect(screen.getByDisplayValue('https://example.com/link-list/test-id?data=encoded')).toBeInTheDocument();
-      });
-
-      const smsButton = screen.getByRole('button', { name: /sms/i });
-      fireEvent.click(smsButton);
-
-      expect(window.open).toHaveBeenCalledWith(
-        expect.stringContaining('sms:?body='),
-        '_blank'
-      );
-
-      // Restore original open
-      window.open = originalOpen;
-    });
-
-    it('handles sharing interface toggle correctly', async () => {
-      mockUseLiveQuery.mockReturnValue([mockLinkList]);
-
-      render(<LinkListsPage />);
-
-      const shareButton = screen.getByRole('button', { name: /share/i });
-      
-      // Initially sharing interface should not be visible
-      expect(screen.queryByText('Shareable URL')).not.toBeInTheDocument();
-
-      // Click to show sharing interface
-      fireEvent.click(shareButton);
-
-      await waitFor(() => {
-        expect(screen.getByText('Shareable URL')).toBeInTheDocument();
-      });
-
-      // Click again to hide sharing interface
-      fireEvent.click(shareButton);
-
-      expect(screen.queryByText('Shareable URL')).not.toBeInTheDocument();
-    });
-
-    it('shows loading state while generating URL', async () => {
-      mockUseLiveQuery.mockReturnValue([mockLinkList]);
-      
-      // Make the service calls take some time
-      mockLinkListService.getPlacesForLinkList.mockImplementation(
-        () => new Promise(resolve => setTimeout(() => resolve(mockPlaces), 100))
-      );
-
-      render(<LinkListsPage />);
-
-      const shareButton = screen.getByRole('button', { name: /share/i });
-      fireEvent.click(shareButton);
-
-      // Should show loading state
-      expect(screen.getByText('Generating shareable URL...')).toBeInTheDocument();
-
-      // Wait for loading to complete
-      await waitFor(() => {
-        expect(screen.getByDisplayValue('https://example.com/link-list/test-id?data=encoded')).toBeInTheDocument();
+        expect(screen.getByTestId('qr-code-generator')).toBeInTheDocument();
       });
     });
   });

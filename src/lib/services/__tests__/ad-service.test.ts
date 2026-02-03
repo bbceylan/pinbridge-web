@@ -2,8 +2,6 @@
  * @jest-environment jsdom
  */
 
-import { adService } from '../ad-service';
-
 // Mock localStorage
 const localStorageMock = {
   getItem: jest.fn(),
@@ -28,22 +26,30 @@ Object.defineProperty(window, 'sessionStorage', {
   value: sessionStorageMock,
 });
 
-// Mock environment variables
+// Mock environment variables (must be set before module import)
 process.env.NEXT_PUBLIC_ADSENSE_CLIENT_ID = 'ca-pub-test123456789';
+
+// Lazy import to capture env configuration
+const { adService } = require('../ad-service');
 
 describe('AdService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     localStorageMock.getItem.mockReturnValue(null);
     sessionStorageMock.getItem.mockReturnValue(null);
+    Object.defineProperty(window, '__PINBRIDGE_USER__', {
+      value: null,
+      writable: true,
+    });
+    (adService as any).config.adSenseClientId = process.env.NEXT_PUBLIC_ADSENSE_CLIENT_ID || '';
+    (adService as any).adBlockDetected = false;
+    (adService as any).pageViewTime = 30;
   });
 
   describe('shouldShowAds', () => {
-    it('should return true when ads are enabled and user is not premium', () => {
+    it('should return true when ads are enabled and user is not premium or logged in', () => {
+      adService.updateUserPreferences({ adsEnabled: true });
       localStorageMock.getItem.mockImplementation((key) => {
-        if (key === 'pinbridge_ad_preferences') {
-          return JSON.stringify({ adsEnabled: true });
-        }
         if (key === 'pinbridge_premium') {
           return 'false';
         }
@@ -54,6 +60,7 @@ describe('AdService', () => {
     });
 
     it('should return false when user is premium', () => {
+      adService.updateUserPreferences({ adsEnabled: true });
       localStorageMock.getItem.mockImplementation((key) => {
         if (key === 'pinbridge_premium') {
           return 'true';
@@ -64,11 +71,23 @@ describe('AdService', () => {
       expect(adService.shouldShowAds()).toBe(false);
     });
 
-    it('should return false when ads are disabled by user', () => {
+    it('should return false when user is logged in', () => {
+      (window as any).__PINBRIDGE_USER__ = { id: 'user_1' };
+
+      adService.updateUserPreferences({ adsEnabled: true });
       localStorageMock.getItem.mockImplementation((key) => {
-        if (key === 'pinbridge_ad_preferences') {
-          return JSON.stringify({ adsEnabled: false });
+        if (key === 'pinbridge_premium') {
+          return 'false';
         }
+        return null;
+      });
+
+      expect(adService.shouldShowAds()).toBe(false);
+    });
+
+    it('should return false when ads are disabled by user', () => {
+      adService.updateUserPreferences({ adsEnabled: false });
+      localStorageMock.getItem.mockImplementation((key) => {
         if (key === 'pinbridge_premium') {
           return 'false';
         }
@@ -82,10 +101,9 @@ describe('AdService', () => {
       const originalClientId = process.env.NEXT_PUBLIC_ADSENSE_CLIENT_ID;
       process.env.NEXT_PUBLIC_ADSENSE_CLIENT_ID = '';
 
+      (adService as any).config.adSenseClientId = '';
+      adService.updateUserPreferences({ adsEnabled: true });
       localStorageMock.getItem.mockImplementation((key) => {
-        if (key === 'pinbridge_ad_preferences') {
-          return JSON.stringify({ adsEnabled: true });
-        }
         if (key === 'pinbridge_premium') {
           return 'false';
         }
@@ -100,10 +118,8 @@ describe('AdService', () => {
 
   describe('getAdPlacementsForPage', () => {
     beforeEach(() => {
+      adService.updateUserPreferences({ adsEnabled: true });
       localStorageMock.getItem.mockImplementation((key) => {
-        if (key === 'pinbridge_ad_preferences') {
-          return JSON.stringify({ adsEnabled: true });
-        }
         if (key === 'pinbridge_premium') {
           return 'false';
         }
@@ -130,12 +146,12 @@ describe('AdService', () => {
     it('should exclude placements for verification pages', () => {
       const placements = adService.getAdPlacementsForPage('/transfer-packs/123/verify');
       
-      // Should not include ads that exclude verification pages
       const hasHeaderBanner = placements.some(p => p.id === 'header-banner');
       expect(hasHeaderBanner).toBe(false);
     });
 
     it('should return empty array when ads should not be shown', () => {
+      adService.updateUserPreferences({ adsEnabled: true });
       localStorageMock.getItem.mockImplementation((key) => {
         if (key === 'pinbridge_premium') {
           return 'true';
@@ -172,14 +188,9 @@ describe('AdService', () => {
     });
 
     it('should store local storage for once-per-day ads', () => {
-      // Mock a once-per-day ad placement
-      const originalPlacements = (adService as any).AD_PLACEMENTS;
+      adService.markAdAsShown('daily-footer');
       
-      adService.markAdAsShown('test-daily-ad');
-      
-      // Since we don't have a daily ad in our current setup, 
-      // let's test the session storage case which we do have
-      expect(sessionStorageMock.setItem).toHaveBeenCalled();
+      expect(localStorageMock.setItem).toHaveBeenCalled();
     });
   });
 

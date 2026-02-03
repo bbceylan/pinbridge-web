@@ -159,7 +159,12 @@ export default function LinkListsPage() {
                   </div>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 p-0"
+                        aria-label="More options"
+                      >
                         <MoreVertical className="w-4 h-4" />
                       </Button>
                     </DropdownMenuTrigger>
@@ -227,6 +232,7 @@ export default function LinkListsPage() {
                       variant="outline" 
                       size="sm" 
                       onClick={() => handleShare(linkList)}
+                      aria-label="Share"
                     >
                       {copiedUrl === linkList.id ? (
                         <Check className="w-4 h-4" />
@@ -275,6 +281,7 @@ export default function LinkListsPage() {
                   variant="ghost"
                   size="sm"
                   onClick={() => setShowQRCode(null)}
+                  aria-label="Close"
                 >
                   ×
                 </Button>

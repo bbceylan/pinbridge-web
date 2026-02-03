@@ -6,6 +6,7 @@
  */
 
 import { matchResultCache } from '../intelligent-cache';
+import { AddressNormalizer } from './place-normalization';
 import type { Place } from '@/types';
 import type { NormalizedPlace } from '../api/response-normalizer';
 
@@ -150,20 +151,29 @@ export class PlaceMatchingService {
   /**
    * Find matches for a single place (simplified interface for property tests)
    */
-  findMatches(originalPlace: Place, candidatePlaces: NormalizedPlace[]): PlaceMatch[] {
-    const query: PlaceMatchQuery = {
-      originalPlace,
-      candidatePlaces,
-    };
+  findMatches(originalPlace: Place, candidatePlaces: NormalizedPlace[]): PlaceMatch[];
+  findMatches(query: PlaceMatchQuery): MatchingResult;
+  findMatches(
+    originalOrQuery: Place | PlaceMatchQuery,
+    candidatePlaces?: NormalizedPlace[]
+  ): PlaceMatch[] | MatchingResult {
+    const isQueryObject = 'originalPlace' in originalOrQuery;
+    const query: PlaceMatchQuery = isQueryObject
+      ? originalOrQuery
+      : {
+          originalPlace: originalOrQuery,
+          candidatePlaces: candidatePlaces || [],
+        };
 
     // Use synchronous version for property tests
-    const normalizedOriginal = this.normalizeOriginalPlace(originalPlace);
+    const normalizedOriginal = this.normalizeOriginalPlace(query.originalPlace);
     const matches: PlaceMatch[] = [];
+    const options = this.resolveOptions(query.options);
 
-    for (const candidate of candidatePlaces) {
-      const match = this.calculateMatchSync(normalizedOriginal, candidate, this.options);
+    for (const candidate of query.candidatePlaces || []) {
+      const match = this.calculateMatchSync(normalizedOriginal, candidate, options);
       
-      if (match.confidenceScore >= this.options.minConfidenceScore) {
+      if (match.confidenceScore >= options.minConfidenceScore) {
         matches.push(match);
       }
     }
@@ -176,7 +186,24 @@ export class PlaceMatchingService {
       match.rank = index + 1;
     });
 
-    return matches;
+    if (!isQueryObject) {
+      return matches;
+    }
+
+    return {
+      query,
+      matches,
+      bestMatch: matches.length > 0 ? matches[0] : undefined,
+      processingTimeMs: 0,
+      metadata: {
+        totalCandidates: query.candidatePlaces.length,
+        validMatches: matches.length,
+        averageConfidence:
+          matches.length > 0
+            ? Math.round(matches.reduce((sum, match) => sum + match.confidenceScore, 0) / matches.length)
+            : 0,
+      },
+    };
   }
 
   /**
@@ -208,7 +235,7 @@ export class PlaceMatchingService {
    */
   async findMatchesAsync(query: PlaceMatchQuery): Promise<MatchingResult> {
     const startTime = Date.now();
-    const options = { ...this.options, ...query.options };
+    const options = this.resolveOptions(query.options);
 
     // Generate cache key for this matching query
     const placeKey = matchResultCache.generatePlaceKey(
@@ -286,9 +313,6 @@ export class PlaceMatchingService {
       },
     };
   }
-      },
-    };
-  }
 
   /**
    * Calculate match score between original place and candidate (synchronous version)
@@ -302,7 +326,7 @@ export class PlaceMatchingService {
     const matchFactors: MatchFactor[] = [];
 
     // 1. Name matching
-    const nameMatch = this.calculateNameMatch(originalPlace.name, candidatePlace.name);
+    const nameMatch = this.calculateNameMatch(originalPlace.original.title, candidatePlace.name);
     const nameWeightedScore = (nameMatch.score * options.weights.name) / 100;
     matchFactors.push({
       type: 'name',
@@ -315,7 +339,7 @@ export class PlaceMatchingService {
     });
 
     // 2. Address matching
-    const addressMatch = this.calculateAddressMatch(originalPlace.address, candidatePlace.address);
+    const addressMatch = this.calculateAddressMatch(originalPlace.original.address, candidatePlace.address);
     const addressWeightedScore = (addressMatch.score * options.weights.address) / 100;
     matchFactors.push({
       type: 'address',
@@ -329,7 +353,7 @@ export class PlaceMatchingService {
 
     // 3. Distance matching (if coordinates available)
     let distanceMatch: MatchFactorResult;
-    if (originalPlace.coordinates && candidatePlace.latitude && candidatePlace.longitude) {
+    if (this.hasValidCoordinates(originalPlace.coordinates, candidatePlace)) {
       distanceMatch = this.calculateDistanceMatch(
         originalPlace.coordinates,
         { latitude: candidatePlace.latitude, longitude: candidatePlace.longitude },
@@ -339,11 +363,14 @@ export class PlaceMatchingService {
       distanceMatch = {
         score: 0,
         explanation: 'No coordinates available for distance calculation',
-        details: { hasOriginalCoords: !!originalPlace.coordinates, hasCandidateCoords: !!(candidatePlace.latitude && candidatePlace.longitude) },
+        details: {
+          hasOriginalCoords: !!originalPlace.coordinates,
+          hasCandidateCoords: candidatePlace.latitude != null && candidatePlace.longitude != null
+        },
         debugInfo: {
           rawInputs: {
             original: originalPlace.coordinates || 'none',
-            candidate: candidatePlace.latitude && candidatePlace.longitude 
+            candidate: candidatePlace.latitude != null && candidatePlace.longitude != null
               ? { lat: candidatePlace.latitude, lng: candidatePlace.longitude }
               : 'none'
           },
@@ -434,6 +461,28 @@ export class PlaceMatchingService {
       };
     }
 
+    const rawOriginal = originalName.trim();
+    const rawCandidate = candidateName.trim();
+
+    if (rawOriginal.length > 0 && rawOriginal === rawCandidate) {
+      calculationSteps.push({
+        step: 'raw_exact_match',
+        value: 100,
+        description: 'Exact match on raw name values'
+      });
+
+      return {
+        score: 100,
+        explanation: 'Exact raw name match',
+        details: { rawOriginal, rawCandidate },
+        debugInfo: {
+          rawInputs: { original: originalName, candidate: candidateName },
+          calculationSteps,
+          bonuses
+        }
+      };
+    }
+
     // Normalize names for comparison
     const normalizedOriginal = this.normalizeName(originalName);
     const normalizedCandidate = this.normalizeName(candidateName);
@@ -443,6 +492,26 @@ export class PlaceMatchingService {
       value: `"${normalizedOriginal}" vs "${normalizedCandidate}"`,
       description: 'Names normalized for comparison'
     });
+
+    if (normalizedOriginal.length === 0 && normalizedCandidate.length === 0) {
+      calculationSteps.push({
+        step: 'empty_normalized',
+        value: 0,
+        description: 'Names are empty after normalization'
+      });
+
+      return {
+        score: 0,
+        explanation: 'Empty names after normalization',
+        details: { normalizedOriginal, normalizedCandidate },
+        debugInfo: {
+          rawInputs: { original: originalName, candidate: candidateName },
+          normalizedInputs: { original: normalizedOriginal, candidate: normalizedCandidate },
+          calculationSteps,
+          bonuses
+        }
+      };
+    }
 
     // Exact match gets full score
     if (normalizedOriginal === normalizedCandidate) {
@@ -578,9 +647,100 @@ export class PlaceMatchingService {
       };
     }
 
+    const rawOriginal = originalAddress.trim();
+    const rawCandidate = candidateAddress.trim();
+
+    if (rawOriginal.length > 0 && rawOriginal === rawCandidate) {
+      calculationSteps.push({
+        step: 'raw_exact_match',
+        value: 100,
+        description: 'Exact match on raw address values'
+      });
+
+      return {
+        score: 100,
+        explanation: 'Exact raw address match',
+        details: { rawOriginal, rawCandidate },
+        debugInfo: {
+          rawInputs: { original: originalAddress, candidate: candidateAddress },
+          calculationSteps,
+          bonuses
+        }
+      };
+    }
+
     // Normalize addresses
     const normalizedOriginal = this.normalizeAddress(originalAddress);
     const normalizedCandidate = this.normalizeAddress(candidateAddress);
+
+    if (normalizedOriginal.length < 4 || normalizedCandidate.length < 4) {
+      calculationSteps.push({
+        step: 'insufficient_length',
+        value: 0,
+        description: 'Address data too short for reliable comparison'
+      });
+
+      return {
+        score: 0,
+        explanation: 'Insufficient address data for reliable comparison',
+        details: { normalizedOriginal, normalizedCandidate },
+        debugInfo: {
+          rawInputs: { original: originalAddress, candidate: candidateAddress },
+          normalizedInputs: { original: normalizedOriginal, candidate: normalizedCandidate },
+          calculationSteps,
+          bonuses
+        }
+      };
+    }
+
+    const alphaNumOriginal = (normalizedOriginal.match(/[a-z0-9]/gi) || []).length;
+    const alphaNumCandidate = (normalizedCandidate.match(/[a-z0-9]/gi) || []).length;
+    if (alphaNumOriginal < 3 || alphaNumCandidate < 3) {
+      calculationSteps.push({
+        step: 'insufficient_alphanumeric',
+        value: 0,
+        description: 'Address data lacks enough alphanumeric content for comparison'
+      });
+
+      return {
+        score: 0,
+        explanation: 'Insufficient address content for reliable comparison',
+        details: { normalizedOriginal, normalizedCandidate },
+        debugInfo: {
+          rawInputs: { original: originalAddress, candidate: candidateAddress },
+          normalizedInputs: { original: normalizedOriginal, candidate: normalizedCandidate },
+          calculationSteps,
+          bonuses
+        }
+      };
+    }
+
+    const originalTokens = normalizedOriginal.split(/\s+/).filter(Boolean);
+    const candidateTokens = normalizedCandidate.split(/\s+/).filter(Boolean);
+    const allowShort =
+      normalizedOriginal.includes(',') ||
+      normalizedCandidate.includes(',') ||
+      /,\s*[a-z]{2}\b/i.test(normalizedOriginal) ||
+      /,\s*[a-z]{2}\b/i.test(normalizedCandidate);
+    if ((originalTokens.length < 3 || candidateTokens.length < 3) && !allowShort) {
+      calculationSteps.push({
+        step: 'insufficient_tokens',
+        value: 0,
+        description: 'Address lacks enough tokens for reliable comparison'
+      });
+
+      return {
+        score: 0,
+        explanation: 'Insufficient address tokens for reliable comparison',
+        details: { normalizedOriginal, normalizedCandidate },
+        debugInfo: {
+          rawInputs: { original: originalAddress, candidate: candidateAddress },
+          normalizedInputs: { original: normalizedOriginal, candidate: normalizedCandidate },
+          calculationSteps,
+          bonuses
+        }
+      };
+    }
 
     calculationSteps.push({
       step: 'normalization',
@@ -639,7 +799,12 @@ export class PlaceMatchingService {
     }
 
     // Street name matching (high weight)
-    if (originalComponents.streetName && candidateComponents.streetName) {
+    if (
+      originalComponents.streetName &&
+      candidateComponents.streetName &&
+      originalComponents.streetName.length >= 3 &&
+      candidateComponents.streetName.length >= 3
+    ) {
       const streetNameScore = this.calculateStringSimilarity(
         originalComponents.streetName,
         candidateComponents.streetName
@@ -689,21 +854,27 @@ export class PlaceMatchingService {
     // If no components matched, fall back to full string similarity
     if (componentCount === 0) {
       const fullStringSimilarity = this.calculateStringSimilarity(normalizedOriginal, normalizedCandidate);
-      
+
       calculationSteps.push({
         step: 'fallback_full_string',
         value: fullStringSimilarity,
         description: 'No address components matched - using full string similarity'
       });
 
+      const fallbackScore = fullStringSimilarity >= 70 ? fullStringSimilarity : 0;
+
       return {
-        score: fullStringSimilarity,
-        explanation: `Full address similarity: ${fullStringSimilarity}%`,
+        score: fallbackScore,
+        explanation:
+          fallbackScore > 0
+            ? `Full address similarity: ${fullStringSimilarity}%`
+            : 'No comparable address components',
         details: {
           normalizedOriginal,
           normalizedCandidate,
           method: 'full_string',
           similarity: fullStringSimilarity,
+          fallbackScore,
         },
         debugInfo: {
           rawInputs: { original: originalAddress, candidate: candidateAddress },
@@ -954,7 +1125,7 @@ export class PlaceMatchingService {
     const qualityIndicators = this.calculateQualityIndicators(originalPlace, candidatePlace, matchFactors);
 
     // 1. Data completeness adjustment (very conservative)
-    if (qualityIndicators.dataCompleteness < 20) {
+    if (rawScore >= 50 && qualityIndicators.dataCompleteness < 20) {
       const penalty = Math.round((20 - qualityIndicators.dataCompleteness) * 0.15);
       adjustedScore -= penalty;
       calibrationFactors.push({
@@ -966,7 +1137,7 @@ export class PlaceMatchingService {
 
     // 2. Match consistency adjustment (very conservative)
     const factorVariance = this.calculateFactorVariance(matchFactors);
-    if (factorVariance > 50) {
+    if (rawScore >= 70 && factorVariance > 50) {
       const penalty = Math.round((factorVariance - 50) * 0.1);
       adjustedScore -= penalty;
       calibrationFactors.push({
@@ -985,13 +1156,30 @@ export class PlaceMatchingService {
     }
 
     // 3. Geographic reliability adjustment (very conservative)
-    if (qualityIndicators.geographicReliability < 10) {
+    if (rawScore >= 50 && qualityIndicators.geographicReliability < 10) {
       const penalty = Math.round((10 - qualityIndicators.geographicReliability) * 0.2);
       adjustedScore -= penalty;
       calibrationFactors.push({
         factor: 'geographic_reliability',
         adjustment: -penalty,
         reason: `Extremely poor geographic data reliability (${qualityIndicators.geographicReliability}%)`
+      });
+    }
+
+    // 3b. Neutral compensation when distance data is missing entirely
+    const distanceFactor = matchFactors.find(f => f.type === 'distance');
+    if (
+      distanceFactor &&
+      distanceFactor.score === 0 &&
+      distanceFactor.explanation.includes('No coordinates') &&
+      !originalPlace.coordinates
+    ) {
+      const bonus = 4;
+      adjustedScore += bonus;
+      calibrationFactors.push({
+        factor: 'missing_distance_neutral',
+        adjustment: bonus,
+        reason: 'Missing distance data treated neutrally to avoid skew'
       });
     }
 
@@ -1003,6 +1191,19 @@ export class PlaceMatchingService {
         factor: 'perfect_match_bonus',
         adjustment: bonus,
         reason: 'Perfect match with excellent data quality'
+      });
+    }
+
+    // 4b. Exact name+address minimum floor for identical places
+    const nameFactor = matchFactors.find(f => f.type === 'name');
+    const addressFactor = matchFactors.find(f => f.type === 'address');
+    if (nameFactor?.score === 100 && addressFactor?.score === 100 && adjustedScore < 85) {
+      const bonus = 85 - Math.round(adjustedScore);
+      adjustedScore += bonus;
+      calibrationFactors.push({
+        factor: 'exact_name_address_floor',
+        adjustment: bonus,
+        reason: 'Exact name and address match should meet minimum confidence'
       });
     }
 
@@ -1106,11 +1307,26 @@ export class PlaceMatchingService {
   ): MatchDebugSummary {
     // Calculate factor contributions
     const totalWeightedScore = matchFactors.reduce((sum, factor) => sum + factor.weightedScore, 0);
-    const factorContributions = matchFactors.map(factor => ({
+    const rawContributions = totalWeightedScore > 0
+      ? matchFactors.map(factor => (factor.weightedScore / totalWeightedScore) * 100)
+      : matchFactors.map(() => 100 / Math.max(1, matchFactors.length));
+    const roundedContributions = rawContributions.map(value => Math.round(value));
+    const contributionSum = roundedContributions.reduce((sum, value) => sum + value, 0);
+    const diff = 100 - contributionSum;
+    if (diff !== 0 && roundedContributions.length > 0) {
+      let adjustIndex = 0;
+      let maxValue = rawContributions[0] ?? 0;
+      for (let i = 1; i < rawContributions.length; i += 1) {
+        if (rawContributions[i] > maxValue) {
+          maxValue = rawContributions[i];
+          adjustIndex = i;
+        }
+      }
+      roundedContributions[adjustIndex] += diff;
+    }
+    const factorContributions = matchFactors.map((factor, index) => ({
       factor: factor.type,
-      contribution: totalWeightedScore > 0 
-        ? Math.round((factor.weightedScore / totalWeightedScore) * 100)
-        : 0,
+      contribution: Math.max(0, Math.min(100, roundedContributions[index] ?? 0)),
       reliability: this.assessFactorReliability(factor),
     }));
 
@@ -1209,11 +1425,50 @@ export class PlaceMatchingService {
       original: place,
       name: this.normalizeName(place.title),
       address: this.normalizeAddress(place.address),
-      coordinates: place.latitude && place.longitude 
+      coordinates:
+        Number.isFinite(place.latitude) && Number.isFinite(place.longitude)
         ? { latitude: place.latitude, longitude: place.longitude }
         : undefined,
       category: place.tags?.[0], // Use first tag as category
     };
+  }
+
+  private hasValidCoordinates(
+    originalCoords?: { latitude: number; longitude: number },
+    candidate?: NormalizedPlace
+  ): originalCoords is { latitude: number; longitude: number } {
+    if (!originalCoords || !candidate) {
+      return false;
+    }
+
+    return (
+      Number.isFinite(originalCoords.latitude) &&
+      Number.isFinite(originalCoords.longitude) &&
+      Number.isFinite(candidate.latitude) &&
+      Number.isFinite(candidate.longitude)
+    );
+  }
+
+  private resolveOptions(options?: MatchingOptions): Required<MatchingOptions> {
+    const resolved: Required<MatchingOptions> = {
+      maxDistance: options?.maxDistance ?? this.options.maxDistance,
+      minConfidenceScore: options?.minConfidenceScore ?? this.options.minConfidenceScore,
+      weights: options?.weights ?? this.options.weights,
+      strictMode: options?.strictMode ?? this.options.strictMode,
+    };
+
+    const totalWeight = Object.values(resolved.weights).reduce((sum, weight) => sum + weight, 0);
+    if (totalWeight !== 100) {
+      const factor = 100 / totalWeight;
+      resolved.weights = {
+        name: resolved.weights.name * factor,
+        address: resolved.weights.address * factor,
+        distance: resolved.weights.distance * factor,
+        category: resolved.weights.category * factor,
+      };
+    }
+
+    return resolved;
   }
 
   /**
@@ -1239,6 +1494,8 @@ export class PlaceMatchingService {
       .replace(/[""]/g, '"') // Normalize quotes
       // Remove special characters but preserve apostrophes and hyphens
       .replace(/[^\w\s'-]/g, '')
+      // Remove apostrophes for more forgiving matching
+      .replace(/'/g, '')
       .trim();
   }
 
@@ -1335,40 +1592,7 @@ export class PlaceMatchingService {
    * Extract address components for detailed matching
    */
   private extractAddressComponents(address: string): AddressComponents {
-    const components: AddressComponents = {};
-
-    // Extract postal code (various formats)
-    const postalMatch = address.match(/\b(\d{5}(-\d{4})?|\w\d\w\s?\d\w\d)\b/);
-    if (postalMatch) {
-      components.postalCode = postalMatch[1].replace(/\s/g, '');
-    }
-
-    // Extract street number (at the beginning)
-    const streetNumberMatch = address.match(/^(\d+[a-z]?)\s/);
-    if (streetNumberMatch) {
-      components.streetNumber = streetNumberMatch[1];
-    }
-
-    // Extract street name (after street number, before city)
-    let remainingAddress = address;
-    if (components.streetNumber) {
-      remainingAddress = address.replace(new RegExp(`^${components.streetNumber}\\s+`), '');
-    }
-    
-    // Common street suffixes
-    const streetSuffixes = ['street', 'avenue', 'boulevard', 'drive', 'road', 'lane', 'court', 'place', 'parkway', 'highway'];
-    const streetMatch = remainingAddress.match(new RegExp(`^([^,]+(?:${streetSuffixes.join('|')})?)`, 'i'));
-    if (streetMatch) {
-      components.streetName = streetMatch[1].trim();
-    }
-
-    // Extract city (usually after first comma)
-    const cityMatch = address.match(/,\s*([^,]+?)(?:\s*,|\s+\d{5}|\s+\w\d\w|$)/);
-    if (cityMatch) {
-      components.city = cityMatch[1].trim();
-    }
-
-    return components;
+    return AddressNormalizer.extractComponents(address);
   }
 
   /**

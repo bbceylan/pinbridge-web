@@ -47,9 +47,25 @@ export function MatchComparison({
   const [showNotes, setShowNotes] = useState(false);
   const [showManualSearch, setShowManualSearch] = useState(false);
 
-  // Parse match data
-  const targetPlace = JSON.parse(match.targetPlaceData);
-  const matchFactors: MatchFactor[] = JSON.parse(match.matchFactors);
+  const safeParse = <T,>(value: string, fallback: T): T => {
+    try {
+      return JSON.parse(value) as T;
+    } catch {
+      return fallback;
+    }
+  };
+
+  // Parse match data safely
+  const targetPlace = safeParse(match.targetPlaceData, {
+    name: 'Unknown place',
+    address: '',
+    rating: null,
+    latitude: null,
+    longitude: null,
+    category: '',
+    website: '',
+  } as any);
+  const matchFactors: MatchFactor[] = safeParse(match.matchFactors, []);
 
   // Get confidence styling
   const getConfidenceStyle = (level: string) => {

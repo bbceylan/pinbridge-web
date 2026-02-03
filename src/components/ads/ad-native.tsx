@@ -135,6 +135,7 @@ export function AdNative({ placement, className = '', variant = 'travel' }: AdNa
             size="sm"
             className="h-6 w-6 p-0 hover:bg-white/50"
             onClick={handleDismiss}
+            aria-label="Close"
           >
             <X className="h-3 w-3" />
           </Button>

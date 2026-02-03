@@ -104,6 +104,17 @@ const AD_PLACEMENTS: AdPlacement[] = [
     targetPages: ['*'], // All pages
     excludePages: ['/transfer-packs/*/verify'],
   },
+  {
+    id: 'daily-footer',
+    type: 'banner',
+    size: 'responsive',
+    position: 'footer',
+    priority: 4,
+    minViewTime: 20,
+    frequency: 'once-per-day',
+    targetPages: ['*'],
+    excludePages: ['/transfer-packs/*/verify'],
+  },
 ];
 
 class AdService {

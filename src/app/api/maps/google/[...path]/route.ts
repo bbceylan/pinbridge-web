@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { enforceAutomationRateLimit } from '@/lib/server/automation-rate-limit';
 
 const GOOGLE_BASE_URL = 'https://maps.googleapis.com/maps/api';
 
@@ -14,6 +15,29 @@ export async function GET(
   if (!apiKey) {
     return NextResponse.json(
       { error: 'Google Maps API key is not configured.' },
+      { status: 500 }
+    );
+  }
+
+  try {
+    const rateLimit = await enforceAutomationRateLimit(request);
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        {
+          error: 'Automated transfer rate limit exceeded.',
+          reason: rateLimit.reason,
+        },
+        {
+          status: 429,
+          headers: rateLimit.retryAfterSeconds
+            ? { 'Retry-After': String(rateLimit.retryAfterSeconds) }
+            : undefined,
+        }
+      );
+    }
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Rate limit check failed.' },
       { status: 500 }
     );
   }

@@ -100,6 +100,23 @@ export class PinBridgeDB extends Dexie {
       placeMatchRecords: 'id, sessionId, originalPlaceId, confidenceLevel, verificationStatus, verifiedAt, [sessionId+verificationStatus], [sessionId+confidenceLevel], [originalPlaceId+sessionId]',
       cacheEntries: 'key, expiresAt, lastAccessedAt, createdAt, tags, [expiresAt+lastAccessedAt]',
     });
+
+    // Version 6: Add updatedAt index for transfer packs
+    this.version(6).stores({
+      places:
+        'id, title, address, normalizedTitle, normalizedAddress, source, createdAt, updatedAt, [normalizedTitle+normalizedAddress]',
+      collections: 'id, name, createdAt',
+      placeCollections: 'id, placeId, collectionId, [placeId+collectionId]',
+      transferPacks: 'id, name, target, createdAt, updatedAt',
+      transferPackItems: 'id, packId, placeId, status, [packId+status]',
+      importRuns: 'id, type, createdAt',
+      linkLists: 'id, title, createdAt, isPublic, updatedAt',
+      apiCache: 'key, timestamp',
+      apiUsageLog: 'id, service, endpoint, createdAt, sessionId, [service+createdAt], [sessionId+createdAt]',
+      transferPackSessions: 'id, packId, status, createdAt, updatedAt, [packId+status], [status+updatedAt]',
+      placeMatchRecords: 'id, sessionId, originalPlaceId, confidenceLevel, verificationStatus, verifiedAt, [sessionId+verificationStatus], [sessionId+confidenceLevel], [originalPlaceId+sessionId]',
+      cacheEntries: 'key, expiresAt, lastAccessedAt, createdAt, tags, [expiresAt+lastAccessedAt]',
+    });
   }
 }
 

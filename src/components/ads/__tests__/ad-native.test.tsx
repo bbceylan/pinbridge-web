@@ -2,7 +2,7 @@
  * @jest-environment jsdom
  */
 
-import React from 'react';
+import React, { act } from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { AdNative } from '../ad-native';
 import { adService } from '@/lib/services/ad-service';
@@ -91,7 +91,9 @@ describe('AdNative', () => {
   it('should track ad clicks', () => {
     render(<AdNative placement={mockPlacement} variant="travel" />);
     
-    const ctaButton = screen.getByRole('button');
+    const ctaButton = screen.getByRole('button', {
+      name: /Search Flights|Find Hotels|Rent Now|Try Free/,
+    });
     fireEvent.click(ctaButton);
     
     expect(mockAdService.trackAdClick).toHaveBeenCalledWith('test-native-ad');
@@ -116,7 +118,9 @@ describe('AdNative', () => {
     const initialContent = initialText.textContent;
     
     // Fast forward 10 seconds to trigger rotation
-    jest.advanceTimersByTime(10000);
+    act(() => {
+      jest.advanceTimersByTime(10000);
+    });
     
     await waitFor(() => {
       const newText = screen.queryByText(/Find Amazing Flight Deals|Book Hotels|Rent a Car/);
@@ -128,10 +132,10 @@ describe('AdNative', () => {
   });
 
   it('should render AdSense ad unit', () => {
-    render(<AdNative placement={mockPlacement} variant="travel" />);
+    const { container } = render(<AdNative placement={mockPlacement} variant="travel" />);
     
-    const adUnit = screen.getByRole('generic', { hidden: true });
-    expect(adUnit).toHaveClass('adsbygoogle');
+    const adUnit = container.querySelector('ins.adsbygoogle');
+    expect(adUnit).toBeInTheDocument();
   });
 
   it('should apply correct styling classes', () => {

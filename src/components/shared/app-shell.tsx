@@ -14,6 +14,7 @@ import {
 import { cn } from '@/lib/utils';
 import { AdManager } from '@/components/ads/ad-manager';
 import { AdBlockerNotice } from '@/components/ads/ad-blocker-notice';
+import { AutomationUnavailableBanner } from '@/components/shared/automation-unavailable-banner';
 
 const navItems = [
   { href: '/', label: 'Library', icon: Library },
@@ -101,6 +102,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <main className="flex-1 md:pl-64">
           <div className="py-6 px-4 md:px-8 max-w-6xl mx-auto">
             <AdBlockerNotice />
+            <AutomationUnavailableBanner />
             {children}
           </div>
         </main>

@@ -76,13 +76,27 @@ export default function TransferPacksPage() {
 function PackCard({ pack }: { pack: TransferPack }) {
   // Use reactive query for transfer pack items instead of imperative useEffect
   const items = useLiveQuery(
-    () => db.transferPackItems.where('packId').equals(pack.id).toArray(),
+    () => {
+      try {
+        return db.transferPackItems.where('packId').equals(pack.id).toArray();
+      } catch (error) {
+        console.error('Failed to load transfer pack items', error);
+        return [];
+      }
+    },
     [pack.id]
   );
 
   // Check for automated transfer session
   const session = useLiveQuery(
-    () => db.transferPackSessions.where('packId').equals(pack.id).first(),
+    () => {
+      try {
+        return db.transferPackSessions.where('packId').equals(pack.id).first();
+      } catch (error) {
+        console.error('Failed to load transfer pack session', error);
+        return undefined;
+      }
+    },
     [pack.id]
   );
   

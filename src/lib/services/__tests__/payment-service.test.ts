@@ -28,6 +28,10 @@ describe('PaymentService', () => {
     jest.clearAllMocks();
     localStorageMock.getItem.mockReturnValue(null);
     (fetch as jest.Mock).mockClear();
+    (fetch as jest.Mock).mockResolvedValue({
+      ok: true,
+      json: async () => ({ sessionId: 'sess_test_123', url: 'https://stripe.test/session' }),
+    });
   });
 
   describe('getPlans', () => {
@@ -88,6 +92,7 @@ describe('PaymentService', () => {
         features: ['Ad-free experience'],
       });
 
+      (fetch as jest.Mock).mockRejectedValueOnce(new Error('Network error'));
       const result = await paymentService.createCheckoutSession('yearly');
       
       expect(result.success).toBe(true);
@@ -336,7 +341,19 @@ describe('PaymentService', () => {
   describe('event dispatching', () => {
     it('should dispatch subscription-updated event on successful upgrade', async () => {
       const dispatchEventSpy = jest.spyOn(window, 'dispatchEvent');
+      const originalGetPlan = paymentService.getPlan;
+
+      paymentService.getPlan = jest.fn().mockReturnValue({
+        id: 'yearly',
+        name: 'Yearly',
+        price: 39.99,
+        currency: 'USD',
+        interval: 'year',
+        stripePriceId: 'price_test_123',
+        features: ['Ad-free experience'],
+      });
       
+      (fetch as jest.Mock).mockRejectedValueOnce(new Error('Network error'));
       await paymentService.createCheckoutSession('yearly');
       
       expect(dispatchEventSpy).toHaveBeenCalledWith(
@@ -345,6 +362,7 @@ describe('PaymentService', () => {
         })
       );
       
+      paymentService.getPlan = originalGetPlan;
       dispatchEventSpy.mockRestore();
     });
 

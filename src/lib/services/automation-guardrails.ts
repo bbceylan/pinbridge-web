@@ -8,22 +8,28 @@ export interface AutomationGuardrails {
   maxBatchSize: number;
   maxRetryAttempts: number;
   pauseOnError: boolean;
+  dailyCap: number;
+  perMinuteCap: number;
 }
 
 const GUARDRAILS: Record<SubscriptionTier, AutomationGuardrails> = {
   free: {
-    maxPlacesPerSession: 0,
-    maxConcurrency: 0,
-    maxBatchSize: 0,
-    maxRetryAttempts: 0,
+    maxPlacesPerSession: 10,
+    maxConcurrency: 5,
+    maxBatchSize: 10,
+    maxRetryAttempts: 1,
     pauseOnError: true,
+    dailyCap: 1,
+    perMinuteCap: 1,
   },
   premium: {
-    maxPlacesPerSession: 500,
+    maxPlacesPerSession: 100,
     maxConcurrency: 3,
     maxBatchSize: 10,
     maxRetryAttempts: 3,
     pauseOnError: false,
+    dailyCap: 10,
+    perMinuteCap: 10,
   },
 };
 

@@ -2,7 +2,7 @@
  * @jest-environment jsdom
  */
 
-import React from 'react';
+import React, { act } from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { AdBlockerNotice } from '../ad-blocker-notice';
 import { adService } from '@/lib/services/ad-service';
@@ -29,28 +29,12 @@ Object.defineProperty(window, 'localStorage', {
   value: localStorageMock,
 });
 
-// Mock window.location
-delete (window as any).location;
-window.location = { href: '' } as any;
-
 describe('AdBlockerNotice', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockAdService.shouldShowAds.mockReturnValue(true);
     mockAdService.isPremiumUser.mockReturnValue(false);
     localStorageMock.getItem.mockReturnValue(null);
-    
-    // Mock DOM manipulation for ad blocker detection
-    const mockDiv = {
-      offsetHeight: 0, // Simulate blocked ad
-      style: {},
-      className: '',
-      innerHTML: '',
-    };
-    
-    jest.spyOn(document, 'createElement').mockReturnValue(mockDiv as any);
-    jest.spyOn(document.body, 'appendChild').mockImplementation();
-    jest.spyOn(document.body, 'removeChild').mockImplementation();
   });
 
   afterEach(() => {
@@ -90,7 +74,9 @@ describe('AdBlockerNotice', () => {
     render(<AdBlockerNotice />);
     
     // Fast forward to trigger ad blocker detection
-    jest.advanceTimersByTime(200);
+    act(() => {
+      jest.advanceTimersByTime(200);
+    });
     
     await waitFor(() => {
       expect(screen.getByText('Ad Blocker Detected')).toBeInTheDocument();
@@ -104,7 +90,9 @@ describe('AdBlockerNotice', () => {
     
     render(<AdBlockerNotice />);
     
-    jest.advanceTimersByTime(200);
+    act(() => {
+      jest.advanceTimersByTime(200);
+    });
     
     await waitFor(() => {
       expect(screen.getByText(/PinBridge is free thanks to ads/)).toBeInTheDocument();
@@ -120,7 +108,9 @@ describe('AdBlockerNotice', () => {
     
     render(<AdBlockerNotice onDismiss={onDismiss} />);
     
-    jest.advanceTimersByTime(200);
+    act(() => {
+      jest.advanceTimersByTime(200);
+    });
     
     await waitFor(() => {
       expect(screen.getByText('Ad Blocker Detected')).toBeInTheDocument();
@@ -143,7 +133,9 @@ describe('AdBlockerNotice', () => {
     
     render(<AdBlockerNotice />);
     
-    jest.advanceTimersByTime(200);
+    act(() => {
+      jest.advanceTimersByTime(200);
+    });
     
     await waitFor(() => {
       expect(screen.getByText('Ad Blocker Detected')).toBeInTheDocument();
@@ -162,10 +154,13 @@ describe('AdBlockerNotice', () => {
 
   it('should handle upgrade to premium', async () => {
     jest.useFakeTimers();
+    const openSpy = jest.spyOn(window, 'open').mockImplementation(() => null);
     
     render(<AdBlockerNotice showUpgradeOption={true} />);
     
-    jest.advanceTimersByTime(200);
+    act(() => {
+      jest.advanceTimersByTime(200);
+    });
     
     await waitFor(() => {
       expect(screen.getByText('Ad Blocker Detected')).toBeInTheDocument();
@@ -174,7 +169,7 @@ describe('AdBlockerNotice', () => {
     const upgradeButton = screen.getByText('Go Ad-Free with Premium');
     fireEvent.click(upgradeButton);
     
-    expect(window.location.href).toBe('/premium');
+    expect(openSpy).toHaveBeenCalledWith('/premium', '_self');
     
     jest.useRealTimers();
   });
@@ -184,7 +179,9 @@ describe('AdBlockerNotice', () => {
     
     render(<AdBlockerNotice showUpgradeOption={false} />);
     
-    jest.advanceTimersByTime(200);
+    act(() => {
+      jest.advanceTimersByTime(200);
+    });
     
     await waitFor(() => {
       expect(screen.getByText('Ad Blocker Detected')).toBeInTheDocument();
@@ -200,7 +197,9 @@ describe('AdBlockerNotice', () => {
     
     render(<AdBlockerNotice />);
     
-    jest.advanceTimersByTime(200);
+    act(() => {
+      jest.advanceTimersByTime(200);
+    });
     
     await waitFor(() => {
       expect(screen.getByText('Why we show ads:')).toBeInTheDocument();
@@ -217,18 +216,23 @@ describe('AdBlockerNotice', () => {
     jest.useFakeTimers();
     
     // Mock normal ad loading (offsetHeight > 0)
-    const mockDiv = {
-      offsetHeight: 100, // Simulate normal ad
-      style: {},
-      className: '',
-      innerHTML: '',
-    };
-    
-    jest.spyOn(document, 'createElement').mockReturnValue(mockDiv as any);
+    const originalCreateElement = document.createElement.bind(document);
+    jest.spyOn(document, 'createElement').mockImplementation((tagName: string) => {
+      const el = originalCreateElement(tagName);
+      if (tagName.toLowerCase() === 'div') {
+        Object.defineProperty(el, 'offsetHeight', {
+          value: 100,
+          configurable: true,
+        });
+      }
+      return el;
+    });
     
     render(<AdBlockerNotice />);
     
-    jest.advanceTimersByTime(200);
+    act(() => {
+      jest.advanceTimersByTime(200);
+    });
     
     await waitFor(() => {
       expect(screen.queryByText('Ad Blocker Detected')).not.toBeInTheDocument();

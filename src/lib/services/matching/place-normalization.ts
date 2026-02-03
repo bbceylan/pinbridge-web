@@ -501,12 +501,13 @@ export class AddressNormalizer {
       .sort(([a], [b]) => b.length - a.length);
 
     for (const [abbrev, full] of sortedAbbrevs) {
-      // Match abbreviation with period first (more specific)
-      const patternWithPeriod = new RegExp(`\\b${abbrev.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\.\\b`, 'gi');
+      const escaped = abbrev.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      // Match abbreviation with period (e.g., "St.") followed by whitespace or end
+      const patternWithPeriod = new RegExp(`\\b${escaped}\\.(?=\\s|$)`, 'gi');
       expanded = expanded.replace(patternWithPeriod, full);
-      
+
       // Then match abbreviation without period at word boundaries
-      const patternNoPeriod = new RegExp(`\\b${abbrev.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b(?!\\.)`, 'gi');
+      const patternNoPeriod = new RegExp(`\\b${escaped}\\b`, 'gi');
       expanded = expanded.replace(patternNoPeriod, full);
     }
 
@@ -531,7 +532,7 @@ export class AddressNormalizer {
     let standardized = address;
     for (const [abbrev, full] of Object.entries(directionals)) {
       // Match at word boundaries, optionally with periods
-      const pattern = new RegExp(`\\b${abbrev}\\.?\\b`, 'gi');
+      const pattern = new RegExp(`\\b${abbrev}\\.(?=\\s|$)|\\b${abbrev}\\b`, 'gi');
       standardized = standardized.replace(pattern, full);
     }
 
@@ -551,7 +552,7 @@ export class AddressNormalizer {
     }
 
     // Extract street number (typically at the beginning)
-    const streetNumberMatch = address.match(/^(\d+[a-z]?(?:-\d+[a-z]?)?)\s/i);
+    const streetNumberMatch = address.match(/^(\d+[a-z]?(?:-\d+[a-z]?)?)[\s,]+/i);
     if (streetNumberMatch) {
       components.streetNumber = streetNumberMatch[1];
     }
@@ -562,22 +563,81 @@ export class AddressNormalizer {
     // Extract street name (after street number, before first comma)
     let streetPart = address.split(',')[0]; // Get first part before comma
     if (components.streetNumber) {
-      streetPart = streetPart.replace(new RegExp(`^${components.streetNumber}\\s+`, 'i'), '');
+      streetPart = streetPart.replace(new RegExp(`^${components.streetNumber}[\\s,]+`, 'i'), '');
     }
+    let inferredCity: string | undefined;
     if (streetPart.trim()) {
-      components.streetName = this.normalize(streetPart.trim());
+      let normalizedStreet = this.normalize(streetPart.trim());
+      // Remove trailing street numbers (e.g., "Unter den Linden 1")
+      normalizedStreet = normalizedStreet.replace(/\s+\d+[a-z]?$/i, '').trim();
+
+      const streetTokens = normalizedStreet.split(/\s+/).filter(Boolean);
+      const suffixes = new Set([
+        'street',
+        'avenue',
+        'boulevard',
+        'drive',
+        'road',
+        'lane',
+        'court',
+        'place',
+        'parkway',
+        'highway',
+        'trail',
+        'terrace',
+        'square',
+        'way',
+      ]);
+      const suffixIndex = streetTokens.findIndex(token => suffixes.has(token));
+
+      if (suffixIndex >= 0 && suffixIndex < streetTokens.length - 1) {
+        components.streetName = streetTokens.slice(0, suffixIndex + 1).join(' ');
+        inferredCity = streetTokens.slice(suffixIndex + 1).join(' ');
+      } else {
+        components.streetName = normalizedStreet;
+      }
     }
 
     // Extract city, region, country from comma-separated parts
     const addressParts = address.split(',').map(part => part.trim()).filter(part => part.length > 0);
     
     if (addressParts.length >= 2) {
+      if (!components.streetName && addressParts.length >= 2) {
+        const fallbackStreet = addressParts[1];
+        if (fallbackStreet) {
+          components.streetName = this.normalize(fallbackStreet);
+        }
+      }
       // Remove the street part (first element)
       const locationParts = addressParts.slice(1);
       
       // Last part might be country or postal code
       const lastPart = locationParts[locationParts.length - 1];
+      const secondLastPart = locationParts.length >= 2 ? locationParts[locationParts.length - 2] : undefined;
       
+      // Handle format with trailing country and region+postal in the previous part
+      if (secondLastPart) {
+        const regionPostalMatch = secondLastPart.match(/^([A-Za-z]{2,3})\s+([A-Za-z0-9\s-]+)$/);
+        if (regionPostalMatch && this.looksLikePostalCode(regionPostalMatch[2])) {
+          components.region = regionPostalMatch[1];
+          components.postalCode = regionPostalMatch[2].replace(/\s/g, '');
+          components.city = locationParts[0];
+          components.country = lastPart;
+          return components;
+        }
+      }
+
+      // Handle combined region + postal code (e.g., "NY 10001")
+      const regionPostalMatch = lastPart.match(/^([A-Za-z]{2,3})\s+([A-Za-z0-9\s-]+)$/);
+      if (regionPostalMatch && this.looksLikePostalCode(regionPostalMatch[2])) {
+        components.region = regionPostalMatch[1];
+        components.postalCode = regionPostalMatch[2].replace(/\s/g, '');
+        if (locationParts.length >= 2) {
+          components.city = locationParts[0];
+        }
+        return components;
+      }
+
       // If last part looks like a postal code, previous parts are city/region
       if (this.looksLikePostalCode(lastPart)) {
         if (locationParts.length >= 3) {
@@ -595,6 +655,10 @@ export class AddressNormalizer {
           components.city = locationParts[0];
         }
       }
+    }
+
+    if (!components.city && inferredCity) {
+      components.city = inferredCity;
     }
 
     return components;
@@ -705,12 +769,12 @@ export class CoordinateValidator {
     const latDecimals = latStr.includes('.') ? latStr.split('.')[1].length : 0;
     const lngDecimals = lngStr.includes('.') ? lngStr.split('.')[1].length : 0;
     
-    const minDecimals = Math.min(latDecimals, lngDecimals);
+    const maxDecimals = Math.max(latDecimals, lngDecimals);
 
-    if (minDecimals >= 5) return 'exact'; // ~1 meter precision
-    if (minDecimals >= 3) return 'approximate'; // ~100 meter precision
-    if (minDecimals >= 2) return 'city'; // ~1 km precision
-    if (minDecimals >= 1) return 'city'; // ~10 km precision - still city level
+    if (maxDecimals >= 5) return 'exact'; // ~1 meter precision
+    if (maxDecimals >= 3) return 'approximate'; // ~100 meter precision
+    if (maxDecimals >= 2) return 'city'; // ~1 km precision
+    if (maxDecimals >= 1) return 'city'; // ~10 km precision - still city level
     return 'region'; // ~100+ km precision
   }
 
@@ -809,7 +873,8 @@ export class CategoryMapper {
 
     // Check for common variations
     const commonVariations = variations1.filter(v => variations2.includes(v));
-    if (commonVariations.length > 0) {
+    const meaningfulCommon = commonVariations.filter(v => v !== 'establishment');
+    if (meaningfulCommon.length > 0) {
       return 60; // Some overlap
     }
 

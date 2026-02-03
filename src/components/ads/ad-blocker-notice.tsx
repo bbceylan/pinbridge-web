@@ -57,7 +57,7 @@ export function AdBlockerNotice({ onDismiss, showUpgradeOption = true }: AdBlock
   };
 
   const handleUpgrade = () => {
-    window.location.href = '/premium';
+    window.open('/premium', '_self');
   };
 
   if (!isVisible || isDismissed || adService.isPremiumUser()) {
@@ -122,6 +122,7 @@ export function AdBlockerNotice({ onDismiss, showUpgradeOption = true }: AdBlock
             size="sm"
             className="h-6 w-6 p-0 text-orange-600 hover:bg-orange-100 ml-2"
             onClick={handleDismiss}
+            aria-label="Close"
           >
             <X className="h-4 w-4" />
           </Button>

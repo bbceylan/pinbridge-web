@@ -1,9 +1,17 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { clearAllData, getPlaceCount } from '@/lib/db';
 import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -21,7 +29,52 @@ export default function SettingsPage() {
   const [adPreferences, setAdPreferences] = useState({ adsEnabled: true });
   const [isPremium, setIsPremium] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const { status: apiStatus, isLoading: apiStatusLoading } = useApiAvailability();
+  const [automationAdminStatus, setAutomationAdminStatus] = useState<{
+    redis: { ok: boolean; error: string | null; configured: boolean };
+    guardrails: {
+      free: {
+        maxPlacesPerSession: number;
+        maxConcurrency: number;
+        maxBatchSize: number;
+        maxRetryAttempts: number;
+        pauseOnError: boolean;
+        dailyCap: number;
+        perMinuteCap: number;
+      };
+      premium: {
+        maxPlacesPerSession: number;
+        maxConcurrency: number;
+        maxBatchSize: number;
+        maxRetryAttempts: number;
+        pauseOnError: boolean;
+        dailyCap: number;
+        perMinuteCap: number;
+      };
+    };
+  } | null>(null);
+  const [metricsUserId, setMetricsUserId] = useState('');
+  const [metricsTier, setMetricsTier] = useState<'free' | 'premium'>('free');
+  const [metricsResult, setMetricsResult] = useState<{
+    userId: string;
+    tier: string;
+    counts: { daily: number; minute: number };
+    caps: { daily: number; minute: number };
+    rolling7Days?: Array<{ date: string; count: number }>;
+  } | null>(null);
+  const [aggregateMetrics, setAggregateMetrics] = useState<{
+    totalDaily: number;
+    totalsByTier?: { free: number; premium: number };
+    rolling7Days?: { free: number; premium: number; total: number };
+    rolling7DaysSeries?: Array<{ date: string; free: number; premium: number; total: number }>;
+    topUsers: Array<{ userId: string; count: number; tier?: string }>;
+  } | null>(null);
+  const [sessionIdInput, setSessionIdInput] = useState('session_test_123');
+  const [sessionRoleInput, setSessionRoleInput] = useState<'admin' | 'user'>('admin');
+  const [sessionPremiumInput, setSessionPremiumInput] = useState(true);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [pendingClear, setPendingClear] = useState<{ userId: string; tier: 'free' | 'premium' } | null>(null);
 
   useEffect(() => {
     getPlaceCount().then(setPlaceCount);
@@ -35,6 +88,7 @@ export default function SettingsPage() {
     // Check premium status
     setIsPremium(paymentService.isPremiumUser());
     setIsLoggedIn(authService.isLoggedIn());
+    setIsAdmin(authService.isAdmin());
 
     // Listen for subscription updates
     const handleSubscriptionUpdate = () => {
@@ -44,6 +98,114 @@ export default function SettingsPage() {
     window.addEventListener('subscription-updated', handleSubscriptionUpdate);
     return () => window.removeEventListener('subscription-updated', handleSubscriptionUpdate);
   }, []);
+
+  const loadAdminStatus = useCallback(async () => {
+    try {
+      const response = await fetch('/api/admin/automation-status', { cache: 'no-store' });
+      if (!response.ok) {
+        return;
+      }
+      const data = await response.json();
+      setAutomationAdminStatus(data);
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const loadAggregates = useCallback(async () => {
+    try {
+      const response = await fetch('/api/admin/automation-metrics', { cache: 'no-store' });
+      if (!response.ok) return;
+      const data = await response.json();
+      if (data?.aggregates) {
+        setAggregateMetrics(data.aggregates);
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    loadAdminStatus();
+    loadAggregates();
+
+    const interval = setInterval(() => {
+      loadAdminStatus();
+      loadAggregates();
+    }, 60000);
+
+    return () => clearInterval(interval);
+  }, [isAdmin, loadAdminStatus, loadAggregates]);
+
+  const handleLoadMetrics = async () => {
+    if (!metricsUserId.trim()) return;
+
+    try {
+      const response = await fetch(
+        `/api/admin/automation-metrics?userId=${encodeURIComponent(metricsUserId.trim())}&tier=${metricsTier}`,
+        { cache: 'no-store' }
+      );
+      if (!response.ok) return;
+      const data = await response.json();
+      setMetricsResult(data);
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleExportCsv = () => {
+    if (!metricsResult?.rolling7Days || metricsResult.rolling7Days.length === 0) return;
+    const rows = [
+      ['date', 'count'],
+      ...metricsResult.rolling7Days.map((entry) => [entry.date, String(entry.count)]),
+    ];
+    const csv = rows.map((row) => row.join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `automation-history-${metricsResult.userId}-${metricsResult.tier}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const renderSparkline = (values: number[], stroke: string) => {
+    if (values.length === 0) return null;
+    const max = Math.max(...values, 1);
+    const width = 160;
+    const height = 40;
+    const step = values.length > 1 ? width / (values.length - 1) : width;
+    const points = values
+      .map((value, index) => {
+        const x = index * step;
+        const y = height - (value / max) * height;
+        return `${x},${y}`;
+      })
+      .join(' ');
+
+    return (
+      <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
+        <polyline
+          fill="none"
+          stroke={stroke}
+          strokeWidth="2"
+          points={points}
+        />
+      </svg>
+    );
+  };
+
+  const handleConfirmClear = async () => {
+    if (!pendingClear) return;
+    await fetch(
+      `/api/admin/automation-metrics?userId=${encodeURIComponent(pendingClear.userId)}&tier=${pendingClear.tier}&clear=true`,
+      { cache: 'no-store' }
+    );
+    setMetricsResult(null);
+    setShowClearConfirm(false);
+    setPendingClear(null);
+  };
 
   const handleDeleteAll = async () => {
     await clearAllData();
@@ -171,30 +333,246 @@ export default function SettingsPage() {
         </Card>
       )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Automation Status</CardTitle>
-          <CardDescription>Automated transfer availability for your account</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-2 text-sm text-muted-foreground">
-          {apiStatusLoading && <p>Checking API availability...</p>}
-          {!apiStatusLoading && apiStatus && (
-            <div className="space-y-1">
-              <p>
-                Apple Maps API: {apiStatus.apple.configured ? 'Configured' : 'Not configured'}
-              </p>
-              <p>
-                Google Maps API: {apiStatus.google.configured ? 'Configured' : 'Not configured'}
-              </p>
-              {!apiStatus.apple.configured && !apiStatus.google.configured && (
-                <p className="text-amber-700">
-                  Automated transfer is temporarily unavailable. Please configure API keys.
+      {isAdmin && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Automation Status</CardTitle>
+            <CardDescription>Automated transfer availability for your account</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm text-muted-foreground">
+            {automationAdminStatus && (
+              <div className="space-y-2 rounded-md border border-muted bg-muted/50 p-3 text-xs text-muted-foreground">
+                <div className="flex items-center justify-between">
+                  <span>Redis:</span>
+                  <span>
+                    {automationAdminStatus.redis.configured
+                      ? automationAdminStatus.redis.ok
+                        ? 'Healthy'
+                        : 'Degraded'
+                      : 'Not configured'}
+                  </span>
+                </div>
+                {automationAdminStatus.redis.error && (
+                  <div className="text-amber-700">
+                    Redis error: {automationAdminStatus.redis.error}
+                  </div>
+                )}
+                <div className="space-y-1">
+                  <div className="font-medium text-foreground">Free Guardrails</div>
+                  <div>
+                    {automationAdminStatus.guardrails.free.dailyCap} per day ·{' '}
+                    {automationAdminStatus.guardrails.free.perMinuteCap} per minute ·{' '}
+                    {automationAdminStatus.guardrails.free.maxPlacesPerSession} places/session
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <div className="font-medium text-foreground">Premium Guardrails</div>
+                  <div>
+                    {automationAdminStatus.guardrails.premium.dailyCap} per day ·{' '}
+                    {automationAdminStatus.guardrails.premium.perMinuteCap} per minute ·{' '}
+                    {automationAdminStatus.guardrails.premium.maxPlacesPerSession} places/session
+                  </div>
+                </div>
+              </div>
+            )}
+            {apiStatusLoading && <p>Checking API availability...</p>}
+            {!apiStatusLoading && apiStatus && (
+              <div className="space-y-1">
+                <p>
+                  Apple Maps API: {apiStatus.apple.configured ? 'Configured' : 'Not configured'}
                 </p>
+                <p>
+                  Google Maps API: {apiStatus.google.configured ? 'Configured' : 'Not configured'}
+                </p>
+                {!apiStatus.apple.configured && !apiStatus.google.configured && (
+                  <p className="text-amber-700">
+                    Automated transfer is temporarily unavailable. Please configure API keys.
+                  </p>
+                )}
+              </div>
+            )}
+
+            <div className="mt-4 border-t pt-3 text-xs text-muted-foreground">
+              <div className="font-medium text-foreground">Usage Metrics</div>
+              {aggregateMetrics && (
+                <div className="mt-2 rounded-md border bg-muted/30 p-2 text-xs">
+                  <div>Total automated sessions today: {aggregateMetrics.totalDaily}</div>
+                  {aggregateMetrics.totalsByTier && (
+                    <div className="mt-1">
+                      Free: {aggregateMetrics.totalsByTier.free} · Premium: {aggregateMetrics.totalsByTier.premium}
+                    </div>
+                  )}
+                  {aggregateMetrics.rolling7Days && (
+                    <div className="mt-1">
+                      Last 7 days: {aggregateMetrics.rolling7Days.total} (Free: {aggregateMetrics.rolling7Days.free} · Premium: {aggregateMetrics.rolling7Days.premium})
+                    </div>
+                  )}
+                  {aggregateMetrics.rolling7DaysSeries && aggregateMetrics.rolling7DaysSeries.length > 0 && (
+                    <div className="mt-2 grid grid-cols-1 md:grid-cols-3 gap-2">
+                      <div className="rounded border bg-background p-2">
+                        <div className="text-[10px] uppercase text-muted-foreground">Total</div>
+                        {renderSparkline(
+                          aggregateMetrics.rolling7DaysSeries.map((d) => d.total),
+                          '#2563eb'
+                        )}
+                      </div>
+                      <div className="rounded border bg-background p-2">
+                        <div className="text-[10px] uppercase text-muted-foreground">Free</div>
+                        {renderSparkline(
+                          aggregateMetrics.rolling7DaysSeries.map((d) => d.free),
+                          '#16a34a'
+                        )}
+                      </div>
+                      <div className="rounded border bg-background p-2">
+                        <div className="text-[10px] uppercase text-muted-foreground">Premium</div>
+                        {renderSparkline(
+                          aggregateMetrics.rolling7DaysSeries.map((d) => d.premium),
+                          '#f59e0b'
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  {aggregateMetrics.topUsers.length > 0 && (
+                    <div className="mt-1">
+                      Top users: {aggregateMetrics.topUsers
+                        .map((u) => `${u.userId} (${u.count}${u.tier ? `, ${u.tier}` : ''})`)
+                        .join(', ')}
+                    </div>
+                  )}
+                </div>
+              )}
+              <div className="mt-2 flex flex-wrap gap-2">
+                <input
+                  type="text"
+                  placeholder="User ID"
+                  value={metricsUserId}
+                  onChange={(e) => setMetricsUserId(e.target.value)}
+                  className="flex-1 min-w-[160px] rounded-md border px-2 py-1 text-xs"
+                />
+                <select
+                  value={metricsTier}
+                  onChange={(e) => setMetricsTier(e.target.value as 'free' | 'premium')}
+                  className="rounded-md border px-2 py-1 text-xs"
+                >
+                  <option value="free">Free</option>
+                  <option value="premium">Premium</option>
+                </select>
+                <Button size="sm" variant="outline" onClick={handleLoadMetrics}>
+                  Load
+                </Button>
+                <Button size="sm" variant="outline" onClick={handleExportCsv}>
+                  Export CSV
+                </Button>
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  onClick={() => {
+                    if (!metricsUserId.trim()) return;
+                    setPendingClear({ userId: metricsUserId.trim(), tier: metricsTier });
+                    setShowClearConfirm(true);
+                  }}
+                >
+                  Clear
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    const payload = {
+                      sessionId: sessionIdInput || 'session_test_123',
+                      userId: metricsUserId || 'user_test_123',
+                      role: sessionRoleInput,
+                      premium: sessionPremiumInput,
+                      ttlSeconds: 60 * 60 * 24 * 7,
+                    };
+                    const origin = window.location.origin;
+                    const curl = [
+                      'curl -X POST',
+                      `\"${origin}/api/admin/session\"`,
+                      '-H \"Content-Type: application/json\"',
+                      '-H \"x-admin-token: $ADMIN_SETUP_TOKEN\"',
+                      `-d '${JSON.stringify(payload)}'`,
+                    ].join(' ');
+                    navigator.clipboard.writeText(curl).catch(() => {});
+                  }}
+                >
+                  Copy curl
+                </Button>
+              </div>
+              <div className="mt-2 flex flex-wrap gap-2 text-xs">
+                <input
+                  type="text"
+                  placeholder="Session ID"
+                  value={sessionIdInput}
+                  onChange={(e) => setSessionIdInput(e.target.value)}
+                  className="flex-1 min-w-[160px] rounded-md border px-2 py-1 text-xs"
+                />
+                <select
+                  value={sessionRoleInput}
+                  onChange={(e) => setSessionRoleInput(e.target.value as 'admin' | 'user')}
+                  className="rounded-md border px-2 py-1 text-xs"
+                >
+                  <option value="admin">Admin</option>
+                  <option value="user">User</option>
+                </select>
+                <label className="flex items-center gap-1 text-xs">
+                  <input
+                    type="checkbox"
+                    checked={sessionPremiumInput}
+                    onChange={(e) => setSessionPremiumInput(e.target.checked)}
+                  />
+                  Premium
+                </label>
+              </div>
+              {metricsResult && (
+                <div className="mt-2 rounded-md border bg-muted/30 p-2 text-xs">
+                  <div>
+                    {metricsResult.userId} · {metricsResult.tier}
+                  </div>
+                  <div>
+                    Daily: {metricsResult.counts.daily}/{metricsResult.caps.daily}
+                  </div>
+                  <div>
+                    Per minute: {metricsResult.counts.minute}/{metricsResult.caps.minute}
+                  </div>
+                  {metricsResult.rolling7Days && metricsResult.rolling7Days.length > 0 && (
+                    <div className="mt-2 space-y-1">
+                      <div className="font-medium text-foreground">Last 7 days</div>
+                      <div className="grid grid-cols-2 gap-1">
+                        {metricsResult.rolling7Days.map((entry) => (
+                          <div key={entry.date} className="flex justify-between">
+                            <span>{entry.date}</span>
+                            <span>{entry.count}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
               )}
             </div>
-          )}
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
+
+      <Dialog open={showClearConfirm} onOpenChange={setShowClearConfirm}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Clear Automation Counters</DialogTitle>
+            <DialogDescription>
+              This will remove all rate-limit counters for the selected user and tier. This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowClearConfirm(false)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleConfirmClear}>
+              Clear Counters
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Privacy & Data */}
       <Card>
