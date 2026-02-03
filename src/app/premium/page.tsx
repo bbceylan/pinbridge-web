@@ -7,12 +7,12 @@ import { Badge } from '@/components/ui/badge';
 import { 
   CheckCircle, 
   Crown, 
+  ArrowRightLeft,
   Zap, 
   Shield, 
   Star, 
   Users,
   TrendingUp,
-  Gift,
   X,
   Loader2
 } from 'lucide-react';
@@ -27,43 +27,10 @@ const PREMIUM_FEATURES = [
     color: 'text-green-600'
   },
   {
-    icon: Zap,
-    title: 'Unlimited Transfers',
-    description: 'Transfer unlimited places with no restrictions',
+    icon: ArrowRightLeft,
+    title: 'Automated Transfer',
+    description: 'Smart matching with bulk verification for faster transfers',
     color: 'text-blue-600'
-  },
-  {
-    icon: TrendingUp,
-    title: 'Priority Processing',
-    description: 'Your transfers get processed first in the queue',
-    color: 'text-purple-600'
-  },
-  {
-    icon: Shield,
-    title: 'Advanced Privacy',
-    description: 'Enhanced privacy controls and data protection',
-    color: 'text-indigo-600'
-  },
-  {
-    icon: Star,
-    title: 'Premium Support',
-    description: '24/7 priority customer support via email',
-    color: 'text-yellow-600'
-  },
-  {
-    icon: Users,
-    title: 'Team Features',
-    description: 'Share transfer packs with team members',
-    color: 'text-pink-600'
-  }
-];
-
-const PREMIUM_FEATURES = [
-  {
-    icon: X,
-    title: 'Ad-Free Experience',
-    description: 'Enjoy PinBridge without any advertisements',
-    color: 'text-green-600'
   },
   {
     icon: Zap,

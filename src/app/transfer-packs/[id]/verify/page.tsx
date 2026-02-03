@@ -10,8 +10,11 @@ import { VerificationInterface } from '@/components/verification/verification-in
 import { ProcessingStatus } from '@/components/verification/processing-status';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Play, Pause, RotateCcw } from 'lucide-react';
+import { ArrowLeft, Play, Pause, RotateCcw, Crown, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
+import { paymentService } from '@/lib/services/payment-service';
+import { useApiAvailability } from '@/lib/hooks/use-api-availability';
+import { PremiumUpsellDialog } from '@/components/shared/premium-upsell-dialog';
 import type { 
   TransferPackSession, 
   PlaceMatchRecord, 
@@ -29,6 +32,9 @@ export default function VerifyTransferPackPage() {
   const [processingProgress, setProcessingProgress] = useState<ProcessingProgress | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isPremium, setIsPremium] = useState(paymentService.isPremiumUser());
+  const [showUpsell, setShowUpsell] = useState(false);
+  const { status: apiStatus, isLoading: apiStatusLoading } = useApiAvailability();
 
   // Live queries for reactive updates
   const transferPack = useLiveQuery(() => db.transferPacks.get(packId), [packId]);
@@ -55,6 +61,15 @@ export default function VerifyTransferPackPage() {
     }
   }, [matchRecords]);
 
+  useEffect(() => {
+    const handleSubscriptionUpdate = () => {
+      setIsPremium(paymentService.isPremiumUser());
+    };
+
+    window.addEventListener('subscription-updated', handleSubscriptionUpdate);
+    return () => window.removeEventListener('subscription-updated', handleSubscriptionUpdate);
+  }, []);
+
   // Progress callback for batch processing
   const handleProgressUpdate = useCallback((progress: ProcessingProgress) => {
     setProcessingProgress(progress);
@@ -66,6 +81,26 @@ export default function VerifyTransferPackPage() {
     if (!packId) return;
 
     try {
+      if (!isPremium) {
+        setShowUpsell(true);
+        return;
+      }
+
+      if (apiStatusLoading) {
+        setError('Checking automated transfer availability...');
+        return;
+      }
+
+      const targetApiConfigured =
+        transferPack?.target === 'apple'
+          ? apiStatus?.apple.configured
+          : apiStatus?.google.configured;
+
+      if (!targetApiConfigured) {
+        setError('Automated transfer is temporarily unavailable.');
+        return;
+      }
+
       setIsProcessing(true);
       setError(null);
 
@@ -102,6 +137,26 @@ export default function VerifyTransferPackPage() {
     if (!session?.id) return;
 
     try {
+      if (!isPremium) {
+        setShowUpsell(true);
+        return;
+      }
+
+      if (apiStatusLoading) {
+        setError('Checking automated transfer availability...');
+        return;
+      }
+
+      const targetApiConfigured =
+        transferPack?.target === 'apple'
+          ? apiStatus?.apple.configured
+          : apiStatus?.google.configured;
+
+      if (!targetApiConfigured) {
+        setError('Automated transfer is temporarily unavailable.');
+        return;
+      }
+
       setIsProcessing(true);
       setError(null);
 
@@ -171,6 +226,7 @@ export default function VerifyTransferPackPage() {
 
   return (
     <div className="container mx-auto py-8 space-y-6">
+      <PremiumUpsellDialog open={showUpsell} onOpenChange={setShowUpsell} />
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
@@ -212,6 +268,40 @@ export default function VerifyTransferPackPage() {
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {!isPremium && (
+        <Card className="border-yellow-200 bg-yellow-50">
+          <CardContent className="pt-6">
+            <div className="flex items-start gap-3 text-yellow-900">
+              <Crown className="h-5 w-5 mt-0.5" />
+              <div>
+                <p className="font-medium">Automated Transfer requires Premium</p>
+                <p className="text-sm text-yellow-800">
+                  Start your free trial to unlock smart matching, bulk verification, and faster transfers.
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {isPremium && apiStatus && transferPack && (
+        !(transferPack.target === 'apple' ? apiStatus.apple.configured : apiStatus.google.configured) && (
+          <Card className="border-amber-200 bg-amber-50">
+            <CardContent className="pt-6">
+              <div className="flex items-start gap-3 text-amber-900">
+                <AlertCircle className="h-5 w-5 mt-0.5" />
+                <div>
+                  <p className="font-medium">Automated Transfer is temporarily unavailable</p>
+                  <p className="text-sm text-amber-800">
+                    We&apos;re missing API keys for {transferPack.target === 'apple' ? 'Apple Maps' : 'Google Maps'}.
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )
       )}
 
       {/* Main content based on phase */}

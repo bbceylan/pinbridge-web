@@ -16,7 +16,9 @@ import {
 } from '@/components/ui/dialog';
 import { AppleMapsService } from '@/lib/services/api/apple-maps';
 import { GoogleMapsService } from '@/lib/services/api/google-maps';
-import { ResponseNormalizer } from '@/lib/services/api/response-normalizer';
+import { paymentService } from '@/lib/services/payment-service';
+import { useApiAvailability } from '@/lib/hooks/use-api-availability';
+import { PremiumUpsellDialog } from '@/components/shared/premium-upsell-dialog';
 import { 
   Search, 
   MapPin, 
@@ -53,6 +55,9 @@ export function ManualSearch({
   const [selectedPlace, setSelectedPlace] = useState<NormalizedPlace | null>(null);
   const [notes, setNotes] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [isPremium, setIsPremium] = useState(paymentService.isPremiumUser());
+  const [showUpsell, setShowUpsell] = useState(false);
+  const { status: apiStatus, isLoading: apiStatusLoading } = useApiAvailability();
 
   // Initialize search query with original place name
   useEffect(() => {
@@ -66,9 +71,37 @@ export function ManualSearch({
     }
   }, [isOpen, match]);
 
+  useEffect(() => {
+    const handleSubscriptionUpdate = () => {
+      setIsPremium(paymentService.isPremiumUser());
+    };
+
+    window.addEventListener('subscription-updated', handleSubscriptionUpdate);
+    return () => window.removeEventListener('subscription-updated', handleSubscriptionUpdate);
+  }, []);
+
   // Perform search
   const handleSearch = async () => {
     if (!searchQuery.trim()) return;
+
+    if (!isPremium) {
+      setError('Automated transfer is a Premium feature.');
+      setShowUpsell(true);
+      return;
+    }
+
+    if (apiStatusLoading) {
+      setError('Checking automated transfer availability...');
+      return;
+    }
+
+    const targetApiConfigured =
+      target === 'apple' ? apiStatus?.apple.configured : apiStatus?.google.configured;
+
+    if (!targetApiConfigured) {
+      setError('Automated transfer is temporarily unavailable.');
+      return;
+    }
 
     setIsSearching(true);
     setError(null);
@@ -78,16 +111,22 @@ export function ManualSearch({
 
       if (target === 'apple') {
         const appleMapsService = new AppleMapsService();
-        const rawResults = await appleMapsService.searchPlaces({
+        const response = await appleMapsService.searchPlacesNormalized({
           name: searchQuery,
         });
-        results = rawResults.map(place => ResponseNormalizer.normalizeAppleMapsPlace(place));
+        if (!response.success || !response.data) {
+          throw new Error(response.error?.message || 'Apple Maps search failed');
+        }
+        results = response.data;
       } else {
         const googleMapsService = new GoogleMapsService();
-        const rawResults = await googleMapsService.searchPlaces({
+        const response = await googleMapsService.searchPlacesNormalized({
           name: searchQuery,
         });
-        results = rawResults.map(place => ResponseNormalizer.normalizeGoogleMapsPlace(place));
+        if (!response.success || !response.data) {
+          throw new Error(response.error?.message || 'Google Maps search failed');
+        }
+        results = response.data;
       }
 
       setSearchResults(results);
@@ -138,6 +177,7 @@ export function ManualSearch({
         </DialogHeader>
 
         <div className="space-y-6">
+          <PremiumUpsellDialog open={showUpsell} onOpenChange={setShowUpsell} />
           {/* Original Place Info */}
           <Card className="bg-blue-50 border-blue-200">
             <CardHeader className="pb-3">

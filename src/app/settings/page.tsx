@@ -11,6 +11,8 @@ import { Badge } from '@/components/ui/badge';
 import { Trash2, Download, AlertTriangle, Shield, Crown, Eye } from 'lucide-react';
 import { adService } from '@/lib/services/ad-service';
 import { paymentService } from '@/lib/services/payment-service';
+import { authService } from '@/lib/services/auth-service';
+import { useApiAvailability } from '@/lib/hooks/use-api-availability';
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -18,6 +20,8 @@ export default function SettingsPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [adPreferences, setAdPreferences] = useState({ adsEnabled: true });
   const [isPremium, setIsPremium] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const { status: apiStatus, isLoading: apiStatusLoading } = useApiAvailability();
 
   useEffect(() => {
     getPlaceCount().then(setPlaceCount);
@@ -30,6 +34,7 @@ export default function SettingsPage() {
 
     // Check premium status
     setIsPremium(paymentService.isPremiumUser());
+    setIsLoggedIn(authService.isLoggedIn());
 
     // Listen for subscription updates
     const handleSubscriptionUpdate = () => {
@@ -99,7 +104,7 @@ export default function SettingsPage() {
       )}
 
       {/* Ad Preferences */}
-      {!isPremium && (
+      {!isPremium && !isLoggedIn && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center space-x-2">
@@ -151,6 +156,45 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
       )}
+
+      {isLoggedIn && !isPremium && (
+        <Card className="border-green-200 bg-green-50">
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2">
+              <Eye className="h-5 w-5 text-green-600" />
+              <span className="text-green-900">Ads Disabled for Logged-In Users</span>
+            </CardTitle>
+            <CardDescription className="text-green-800">
+              You're logged in, so we keep the experience ad-free.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      )}
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Automation Status</CardTitle>
+          <CardDescription>Automated transfer availability for your account</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-2 text-sm text-muted-foreground">
+          {apiStatusLoading && <p>Checking API availability...</p>}
+          {!apiStatusLoading && apiStatus && (
+            <div className="space-y-1">
+              <p>
+                Apple Maps API: {apiStatus.apple.configured ? 'Configured' : 'Not configured'}
+              </p>
+              <p>
+                Google Maps API: {apiStatus.google.configured ? 'Configured' : 'Not configured'}
+              </p>
+              {!apiStatus.apple.configured && !apiStatus.google.configured && (
+                <p className="text-amber-700">
+                  Automated transfer is temporarily unavailable. Please configure API keys.
+                </p>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Privacy & Data */}
       <Card>

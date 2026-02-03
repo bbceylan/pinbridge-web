@@ -3,6 +3,7 @@
  */
 
 import { BaseAPIService } from './base-service';
+import { APIConfigManager } from './config';
 import { GoogleMapsErrorHandler } from './google-maps-errors';
 import { ResponseNormalizer } from './response-normalizer';
 import { apiResponseCache } from '../intelligent-cache';
@@ -156,8 +157,9 @@ export interface GoogleMapsPlaceDetailsResponse {
 }
 
 export class GoogleMapsService extends BaseAPIService {
-  constructor(config: APIConfig) {
-    super(config, 'google_maps');
+  constructor(config?: APIConfig) {
+    const resolvedConfig = config ?? APIConfigManager.getInstance().getConfig('google_maps');
+    super(resolvedConfig, 'google_maps');
   }
 
   protected getAuthHeaders(): Record<string, string> {
@@ -239,7 +241,6 @@ export class GoogleMapsService extends BaseAPIService {
       website: normalized.website,
       businessStatus: 'OPERATIONAL',
     };
-  }
   }
 
   /**

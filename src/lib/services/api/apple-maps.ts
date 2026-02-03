@@ -3,6 +3,7 @@
  */
 
 import { BaseAPIService } from './base-service';
+import { APIConfigManager } from './config';
 import { AppleMapsErrorHandler } from './apple-maps-errors';
 import { ResponseNormalizer } from './response-normalizer';
 import { apiResponseCache } from '../intelligent-cache';
@@ -137,13 +138,17 @@ export interface AppleMapsPlaceDetailsResponse {
 }
 
 export class AppleMapsService extends BaseAPIService {
-  constructor(config: APIConfig) {
-    super(config, 'apple_maps');
+  constructor(config?: APIConfig) {
+    const resolvedConfig = config ?? APIConfigManager.getInstance().getConfig('apple_maps');
+    super(resolvedConfig, 'apple_maps');
   }
 
   protected getAuthHeaders(): Record<string, string> {
+    if (!this.config.apiKey) {
+      return {};
+    }
     return {
-      'Authorization': `Bearer ${this.config.apiKey}`,
+      Authorization: `Bearer ${this.config.apiKey}`,
     };
   }
 

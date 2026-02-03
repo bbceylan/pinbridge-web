@@ -7,7 +7,10 @@ import { db } from '@/lib/db';
 import { useTransferPacksStore } from '@/stores/transfer-packs';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, ArrowRight, AlertCircle } from 'lucide-react';
+import { ArrowLeft, ArrowRight, AlertCircle, Crown } from 'lucide-react';
+import { paymentService } from '@/lib/services/payment-service';
+import { useApiAvailability } from '@/lib/hooks/use-api-availability';
+import { PremiumUpsellDialog } from '@/components/shared/premium-upsell-dialog';
 import type { TransferTarget, Collection } from '@/types';
 
 type Step = 'target' | 'mode' | 'scope' | 'review';
@@ -21,8 +24,12 @@ export default function NewTransferPackPage() {
   const [selectedCollectionId, setSelectedCollectionId] = useState<string | null>(null);
   const [excludeMissingCoords, setExcludeMissingCoords] = useState(true);
   const [packName, setPackName] = useState('');
+  const [isPremium, setIsPremium] = useState(paymentService.isPremiumUser());
+  const [showUpsell, setShowUpsell] = useState(false);
+  const [guardrailMessage, setGuardrailMessage] = useState<string | null>(null);
 
   const { createPack } = useTransferPacksStore();
+  const { status: apiStatus, isLoading: apiStatusLoading } = useApiAvailability();
 
   const places = useLiveQuery(() => db.places.toArray(), []);
   const collections = useLiveQuery(() => db.collections.toArray(), []);
@@ -48,8 +55,39 @@ export default function NewTransferPackPage() {
     setPackName(`Transfer to ${targetName}`);
   }, [target]);
 
+  useEffect(() => {
+    const handleSubscriptionUpdate = () => {
+      setIsPremium(paymentService.isPremiumUser());
+    };
+
+    window.addEventListener('subscription-updated', handleSubscriptionUpdate);
+    return () => window.removeEventListener('subscription-updated', handleSubscriptionUpdate);
+  }, []);
+
   const handleCreate = async () => {
     if (!places) return;
+
+    setGuardrailMessage(null);
+
+    if (transferMode === 'automated') {
+      if (!isPremium) {
+        setShowUpsell(true);
+        return;
+      }
+
+      if (apiStatusLoading) {
+        setGuardrailMessage('Checking automated transfer availability...');
+        return;
+      }
+
+      const targetApiConfigured =
+        target === 'apple' ? apiStatus?.apple.configured : apiStatus?.google.configured;
+
+      if (!targetApiConfigured) {
+        setGuardrailMessage('Automated transfer is temporarily unavailable.');
+        return;
+      }
+    }
 
     const placeIds = eligiblePlaces?.map((p) => p.id) ?? [];
 
@@ -71,6 +109,7 @@ export default function NewTransferPackPage() {
 
   return (
     <div className="space-y-6 max-w-2xl mx-auto">
+      <PremiumUpsellDialog open={showUpsell} onOpenChange={setShowUpsell} />
       <div className="flex items-center gap-4">
         <Button variant="ghost" size="icon" onClick={() => router.back()}>
           <ArrowLeft className="w-5 h-5" />
@@ -161,6 +200,12 @@ export default function NewTransferPackPage() {
                   <span className="px-2 py-0.5 text-xs bg-blue-100 text-blue-700 rounded">
                     Recommended
                   </span>
+                  {!isPremium && (
+                    <span className="px-2 py-0.5 text-xs bg-yellow-100 text-yellow-800 rounded flex items-center gap-1">
+                      <Crown className="h-3 w-3" />
+                      Premium
+                    </span>
+                  )}
                 </div>
                 <p className="text-sm text-muted-foreground mb-2">
                   Automatically search and match your places in {target === 'apple' ? 'Apple Maps' : 'Google Maps'}. 
@@ -175,6 +220,11 @@ export default function NewTransferPackPage() {
                     <li>Manual override for uncertain matches</li>
                   </ul>
                 </div>
+                {!isPremium && (
+                  <div className="mt-3 text-xs text-yellow-800 bg-yellow-50 p-2 rounded">
+                    Start your free trial to unlock Automated Transfer.
+                  </div>
+                )}
               </div>
             </label>
 
@@ -311,6 +361,12 @@ export default function NewTransferPackPage() {
             <CardDescription>Confirm your transfer pack settings</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            {guardrailMessage && (
+              <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-50 text-amber-800">
+                <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                <p className="text-sm">{guardrailMessage}</p>
+              </div>
+            )}
             <div>
               <label className="text-sm font-medium">Pack Name</label>
               <input
@@ -359,6 +415,15 @@ export default function NewTransferPackPage() {
                     <li>You'll review and verify matches before completing the transfer</li>
                     <li>Manual search available for uncertain matches</li>
                   </ol>
+                </div>
+              </div>
+            )}
+
+            {transferMode === 'automated' && !isPremium && (
+              <div className="flex items-start gap-2 p-3 rounded-lg bg-yellow-50 text-yellow-900">
+                <Crown className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                <div className="text-sm">
+                  Automated Transfer requires Premium. Start your free trial to continue.
                 </div>
               </div>
             )}

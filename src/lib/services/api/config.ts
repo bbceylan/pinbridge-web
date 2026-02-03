@@ -12,6 +12,7 @@ export interface APIServiceConfig {
 export class APIConfigManager {
   private static instance: APIConfigManager;
   private configs: Map<APIService, APIConfig> = new Map();
+  private readonly isBrowser = typeof window !== 'undefined';
 
   private constructor() {
     this.loadConfigs();
@@ -25,10 +26,19 @@ export class APIConfigManager {
   }
 
   private loadConfigs(): void {
+    const appleKey =
+      process.env.APPLE_MAPS_API_KEY ||
+      process.env.NEXT_PUBLIC_APPLE_MAPS_API_KEY ||
+      '';
+    const googleKey =
+      process.env.GOOGLE_MAPS_API_KEY ||
+      process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ||
+      '';
+
     // Apple Maps configuration
     this.configs.set('apple_maps', {
-      apiKey: process.env.NEXT_PUBLIC_APPLE_MAPS_API_KEY || '',
-      baseUrl: 'https://maps-api.apple.com/v1',
+      apiKey: this.isBrowser ? '' : appleKey,
+      baseUrl: this.isBrowser ? '/api/maps/apple' : 'https://maps-api.apple.com/v1',
       timeout: 10000,
       maxRetries: 3,
       rateLimitPerSecond: 10, // Conservative rate limit
@@ -36,8 +46,8 @@ export class APIConfigManager {
 
     // Google Maps configuration
     this.configs.set('google_maps', {
-      apiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '',
-      baseUrl: 'https://maps.googleapis.com/maps/api',
+      apiKey: this.isBrowser ? '' : googleKey,
+      baseUrl: this.isBrowser ? '/api/maps/google' : 'https://maps.googleapis.com/maps/api',
       timeout: 10000,
       maxRetries: 3,
       rateLimitPerSecond: 5, // Conservative rate limit for free tier
@@ -67,7 +77,7 @@ export class APIConfigManager {
       return { valid: false, errors };
     }
 
-    if (!config.apiKey) {
+    if (!config.apiKey && !this.isProxyBaseUrl(config.baseUrl)) {
       errors.push(`API key is required for ${service}`);
     }
 
@@ -92,7 +102,7 @@ export class APIConfigManager {
 
   isConfigured(service: APIService): boolean {
     const config = this.configs.get(service);
-    return !!(config && config.apiKey);
+    return !!(config && (config.apiKey || this.isProxyBaseUrl(config.baseUrl)));
   }
 
   getAvailableServices(): APIService[] {
@@ -118,5 +128,9 @@ export class APIConfigManager {
     }
 
     return status as Record<APIService, { configured: boolean; valid: boolean; errors: string[] }>;
+  }
+
+  private isProxyBaseUrl(baseUrl: string): boolean {
+    return baseUrl.startsWith('/api/maps/');
   }
 }

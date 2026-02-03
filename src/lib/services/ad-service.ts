@@ -5,6 +5,8 @@
  * with strategic placement and user experience considerations.
  */
 
+import { authService } from './auth-service';
+
 export interface AdConfig {
   enabled: boolean;
   adSenseClientId: string;
@@ -207,6 +209,8 @@ class AdService {
     return (
       this.config.enabled &&
       this.userPreferences.adsEnabled &&
+      !this.isPremiumUser() &&
+      !this.isLoggedInUser() &&
       !this.adBlockDetected &&
       this.config.adSenseClientId !== ''
     );
@@ -439,6 +443,10 @@ class AdService {
     } catch (error) {
       return false;
     }
+  }
+
+  private isLoggedInUser(): boolean {
+    return authService.isLoggedIn();
   }
 }
 

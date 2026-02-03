@@ -9,8 +9,9 @@ import { transferSessionService } from './transfer-session';
 import { PlaceMatchingService } from './matching/place-matching';
 import { AppleMapsService } from './api/apple-maps';
 import { GoogleMapsService } from './api/google-maps';
-import { ResponseNormalizer } from './api/response-normalizer';
 import { workerPoolManager } from './worker-pool-manager';
+import { applyAutomationGuardrails, getAutomationGuardrails } from './automation-guardrails';
+import { getAutomationAccess } from './automation-access';
 import { db } from '@/lib/db';
 import type { 
   Place, 
@@ -85,8 +86,8 @@ export class BatchProcessingEngine {
 
   constructor() {
     this.matchingService = new PlaceMatchingService();
-    this.appleMapsService = new AppleMapsService(''); // Will be configured later
-    this.googleMapsService = new GoogleMapsService(''); // Will be configured later
+    this.appleMapsService = new AppleMapsService();
+    this.googleMapsService = new GoogleMapsService();
   }
 
   /**
@@ -105,9 +106,26 @@ export class BatchProcessingEngine {
       throw new Error(`Transfer pack not found: ${packId}`);
     }
 
+    const access = await getAutomationAccess(transferPack.target);
+    if (!access.canUseAutomation) {
+      if (access.reason === 'premium') {
+        throw new Error('Automated transfer requires Premium.');
+      }
+      throw new Error('Automated transfer is temporarily unavailable.');
+    }
+
+    const guardrails = getAutomationGuardrails(access.tier);
+    const enforcedOptions = applyAutomationGuardrails(opts, guardrails);
+
     const places = await this.getPlacesForPack(transferPack);
     if (places.length === 0) {
       throw new Error('No places found in transfer pack');
+    }
+
+    if (places.length > guardrails.maxPlacesPerSession) {
+      throw new Error(
+        `Automated transfer is limited to ${guardrails.maxPlacesPerSession} places per session.`
+      );
     }
 
     // Create or get existing session
@@ -136,7 +154,7 @@ export class BatchProcessingEngine {
         session,
         places,
         transferPack.target,
-        opts,
+        enforcedOptions,
         abortController.signal
       );
 
@@ -446,13 +464,29 @@ export class BatchProcessingEngine {
         let apiCallsUsed = 0;
 
         if (target === 'apple') {
-          const results = await this.appleMapsService.searchPlaces(searchQuery);
-          candidatePlaces = results.data.map((p: any) => ResponseNormalizer.normalizeAppleMapsPlace(p));
+          const results = await this.appleMapsService.searchPlacesNormalized(searchQuery);
           apiCallsUsed = 1;
+          if (!results.success || !results.data) {
+            return {
+              success: false,
+              matches: [],
+              apiCallsUsed,
+              error: results.error?.message || 'Apple Maps search failed',
+            };
+          }
+          candidatePlaces = results.data;
         } else if (target === 'google') {
-          const results = await this.googleMapsService.searchPlaces(searchQuery);
-          candidatePlaces = results.data.map((p: any) => ResponseNormalizer.normalizeGoogleMapsPlace(p));
+          const results = await this.googleMapsService.searchPlacesNormalized(searchQuery);
           apiCallsUsed = 1;
+          if (!results.success || !results.data) {
+            return {
+              success: false,
+              matches: [],
+              apiCallsUsed,
+              error: results.error?.message || 'Google Maps search failed',
+            };
+          }
+          candidatePlaces = results.data;
         }
 
         // Use Web Worker for CPU-intensive matching if available

@@ -235,7 +235,7 @@ export default function ImportPage() {
                 onChange={(e) => {
                   const file = e.target.files?.[0];
                   if (file) {
-                    if (file.name.endsWith('.zip')) {
+                    if (file.name.toLowerCase().endsWith('.zip')) {
                       handleTakeoutUpload(file);
                     } else {
                       handleCsvUpload(file);
