@@ -27,22 +27,25 @@ interface EncodedPlace {
 class URLServiceImpl implements URLService {
   private readonly MAX_URL_LENGTH = 2000; // Conservative browser limit
   
+  private toSafeISOString(value: Date | string | number | null | undefined): string {
+    if (!value) {
+      return new Date(0).toISOString();
+    }
+
+    if (value instanceof Date) {
+      return isNaN(value.getTime()) ? new Date(0).toISOString() : value.toISOString();
+    }
+
+    const parsed = new Date(value);
+    return isNaN(parsed.getTime()) ? new Date(0).toISOString() : parsed.toISOString();
+  }
+
   generateShareableURL(linkList: LinkList, places: Place[]): string {
     // Generate cache key based on link list content and places
     const placesHash = cacheUtils.generateHash(places.map(p => ({ id: p.id, title: p.title, address: p.address })));
     
     // Handle invalid dates gracefully
-    let createdAtString: string;
-    try {
-      if (linkList.createdAt instanceof Date) {
-        createdAtString = isNaN(linkList.createdAt.getTime()) ? new Date().toISOString() : linkList.createdAt.toISOString();
-      } else {
-        const date = new Date(linkList.createdAt);
-        createdAtString = isNaN(date.getTime()) ? new Date().toISOString() : date.toISOString();
-      }
-    } catch (error) {
-      createdAtString = new Date().toISOString();
-    }
+    const createdAtString = this.toSafeISOString(linkList.createdAt);
     
     const linkListHash = cacheUtils.generateHash({
       id: linkList.id,
@@ -125,7 +128,7 @@ class URLServiceImpl implements URLService {
       title: linkList.title,
       description: linkList.description,
       places: encodedPlaces,
-      createdAt: linkList.createdAt instanceof Date ? linkList.createdAt.toISOString() : new Date(linkList.createdAt).toISOString(),
+      createdAt: this.toSafeISOString(linkList.createdAt),
     };
     
     const jsonString = JSON.stringify(data);

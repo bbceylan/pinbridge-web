@@ -4,6 +4,16 @@
 // Import testing library matchers
 import '@testing-library/jest-dom';
 
+// Suppress known act(...) warnings from async Dexie liveQuery updates in jsdom.
+const originalConsoleError = console.error;
+console.error = (...args) => {
+  const firstArg = args[0];
+  if (typeof firstArg === 'string' && firstArg.includes('not wrapped in act')) {
+    return;
+  }
+  originalConsoleError(...args);
+};
+
 // Polyfill for structuredClone (required for fake-indexeddb)
 if (!global.structuredClone) {
   global.structuredClone = (obj) => JSON.parse(JSON.stringify(obj));

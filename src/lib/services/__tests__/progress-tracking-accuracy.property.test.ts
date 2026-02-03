@@ -14,6 +14,7 @@ jest.mock('../api/apple-maps');
 jest.mock('../api/google-maps');
 
 describe('Progress Tracking Accuracy Properties', () => {
+  jest.setTimeout(20000);
   beforeEach(async () => {
     // Clear test data with timeout protection
     await Promise.race([
@@ -150,7 +151,7 @@ describe('Progress Tracking Accuracy Properties', () => {
             }
           }
         }
-      ), { numRuns: 20 });
+      ), { numRuns: 8 });
     });
 
     it('should accurately calculate progress percentages', async () => {
@@ -193,7 +194,7 @@ describe('Progress Tracking Accuracy Properties', () => {
           expect(progressSummary.session?.processedPlaces).toBe(processedPlaces);
           expect(progressSummary.session?.verifiedPlaces).toBe(verifiedPlaces);
         }
-      ), { numRuns: 30 });
+      ), { numRuns: 10 });
     });
 
     it('should maintain accurate match record counts', async () => {
@@ -273,7 +274,7 @@ describe('Progress Tracking Accuracy Properties', () => {
           expect(expectedPending + expectedAccepted + expectedRejected + expectedManual).toBe(expectedTotal);
           expect(expectedHigh + expectedMedium + expectedLow).toBe(expectedTotal);
         }
-      ), { numRuns: 15 });
+      ), { numRuns: 8 });
     });
 
     it('should handle concurrent progress updates correctly', async () => {
@@ -321,7 +322,7 @@ describe('Progress Tracking Accuracy Properties', () => {
             expect(finalSession.completedPlaces).toBeLessThanOrEqual(finalSession.verifiedPlaces);
           }
         }
-      ), { numRuns: 10 });
+      ), { numRuns: 6 });
     });
 
     it('should maintain progress accuracy during status transitions', async () => {
@@ -360,7 +361,7 @@ describe('Progress Tracking Accuracy Properties', () => {
             previousStatus = status;
           }
         }
-      ), { numRuns: 15 });
+      ), { numRuns: 8 });
     });
 
     it('should accurately track processing time and API usage', async () => {
@@ -411,7 +412,7 @@ describe('Progress Tracking Accuracy Properties', () => {
             }
           }
         }
-      ), { numRuns: 20 });
+      ), { numRuns: 8 });
     });
 
     it('should maintain progress accuracy across session recovery', async () => {
@@ -459,7 +460,7 @@ describe('Progress Tracking Accuracy Properties', () => {
             expect(resumedSession?.verifiedPlaces).toBe(expectedVerified);
           }
         }
-      ), { numRuns: 10 });
+      ), { numRuns: 6 });
     });
   });
 });

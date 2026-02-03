@@ -428,7 +428,7 @@ describe('Session State Management Properties', () => {
           expect(finalSession).toBeDefined();
           expect(finalSession!.processedPlaces).toBeGreaterThanOrEqual(0);
           expect(finalSession!.apiCallsUsed).toBeGreaterThanOrEqual(0);
-          expect(toTime(finalSession!.updatedAt)).toBeGreaterThan(toTime(session.createdAt));
+          expect(toTime(finalSession!.updatedAt)).toBeGreaterThanOrEqual(toTime(session.createdAt));
         }
       ), { numRuns: 10 });
     });

@@ -9,6 +9,10 @@ export class APICache {
   private readonly defaultTTL = 24 * 60 * 60 * 1000; // 24 hours
 
   async get<T>(key: string): Promise<T | null> {
+    if (!db?.apiCache) {
+      return null;
+    }
+
     try {
       const entry = await db.apiCache.get(key);
       if (!entry) {
@@ -32,6 +36,10 @@ export class APICache {
   }
 
   async set<T>(key: string, data: T, ttl?: number): Promise<void> {
+    if (!db?.apiCache) {
+      return;
+    }
+
     try {
       const entry: CacheEntry<T> = {
         data,
@@ -49,6 +57,10 @@ export class APICache {
   }
 
   async delete(key: string): Promise<void> {
+    if (!db?.apiCache) {
+      return;
+    }
+
     try {
       await db.apiCache.delete(key);
     } catch (error) {
@@ -57,6 +69,10 @@ export class APICache {
   }
 
   async clear(): Promise<void> {
+    if (!db?.apiCache) {
+      return;
+    }
+
     try {
       await db.apiCache.clear();
     } catch (error) {
@@ -65,6 +81,10 @@ export class APICache {
   }
 
   async cleanup(): Promise<void> {
+    if (!db?.apiCache) {
+      return;
+    }
+
     try {
       const now = Date.now();
       const allEntries = await db.apiCache.toArray();
@@ -91,6 +111,14 @@ export class APICache {
   }
 
   async getStats() {
+    if (!db?.apiCache) {
+      return {
+        totalEntries: 0,
+        expiredEntries: 0,
+        estimatedSizeBytes: 0,
+      };
+    }
+
     try {
       const allEntries = await db.apiCache.toArray();
       const now = Date.now();

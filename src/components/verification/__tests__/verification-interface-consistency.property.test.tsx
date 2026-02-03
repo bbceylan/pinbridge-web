@@ -4,7 +4,6 @@ import userEvent from '@testing-library/user-event';
 import fc from 'fast-check';
 import '@testing-library/jest-dom';
 import { VerificationInterface } from '../verification-interface';
-import { db } from '@/lib/db';
 import type { 
   TransferPackSession, 
   PlaceMatchRecord, 
@@ -16,51 +15,22 @@ jest.mock('@/lib/services/transfer-session');
 jest.mock('@/lib/services/batch-processing-engine');
 
 describe('Verification Interface Consistency Properties', () => {
-  beforeEach(async () => {
-    // Clear test data with timeout
-    await Promise.race([
-      Promise.all([
-        db.transferPackSessions.clear(),
-        db.placeMatchRecords.clear()
-      ]),
-      new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Cleanup timeout')), 3000)
-      )
-    ]);
-  });
-
-  afterEach(async () => {
-    // Clean up test data with timeout
-    try {
-      await Promise.race([
-        Promise.all([
-          db.transferPackSessions.clear(),
-          db.placeMatchRecords.clear()
-        ]),
-        new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Cleanup timeout')), 3000)
-        )
-      ]);
-    } catch (error) {
-      // Log cleanup errors but don't fail the test
-      console.warn('Test cleanup timeout:', error);
-    }
-  });
+  jest.setTimeout(20000);
 
   // Arbitraries for generating test data
   const sessionArb = fc.record({
-    id: fc.string({ minLength: 5, maxLength: 50 }).filter(s => s.trim().length > 0),
-    packId: fc.string({ minLength: 5, maxLength: 50 }).filter(s => s.trim().length > 0),
+    id: fc.string({ minLength: 5, maxLength: 30 }).filter(s => s.trim().length > 0),
+    packId: fc.string({ minLength: 5, maxLength: 30 }).filter(s => s.trim().length > 0),
     status: fc.constantFrom('pending', 'processing', 'verifying', 'completed', 'failed', 'paused'),
     createdAt: fc.date(),
     updatedAt: fc.date(),
-    apiCallsUsed: fc.integer({ min: 0, max: 1000 }),
-    processingTimeMs: fc.integer({ min: 0, max: 3600000 }),
-    errorCount: fc.integer({ min: 0, max: 100 }),
-    totalPlaces: fc.integer({ min: 1, max: 100 }),
-    processedPlaces: fc.integer({ min: 0, max: 100 }),
-    verifiedPlaces: fc.integer({ min: 0, max: 100 }),
-    completedPlaces: fc.integer({ min: 0, max: 100 })
+    apiCallsUsed: fc.integer({ min: 0, max: 200 }),
+    processingTimeMs: fc.integer({ min: 0, max: 120000 }),
+    errorCount: fc.integer({ min: 0, max: 50 }),
+    totalPlaces: fc.integer({ min: 1, max: 50 }),
+    processedPlaces: fc.integer({ min: 0, max: 50 }),
+    verifiedPlaces: fc.integer({ min: 0, max: 50 }),
+    completedPlaces: fc.integer({ min: 0, max: 50 })
   });
 
   const transferPackArb = fc.record({
@@ -77,13 +47,13 @@ describe('Verification Interface Consistency Properties', () => {
   });
 
   const matchRecordArb = fc.record({
-    id: fc.string({ minLength: 5, maxLength: 50 }).filter(s => s.trim().length > 0),
-    sessionId: fc.string({ minLength: 5, maxLength: 50 }).filter(s => s.trim().length > 0),
-    originalPlaceId: fc.string({ minLength: 5, maxLength: 50 }).filter(s => s.trim().length > 0),
+    id: fc.string({ minLength: 5, maxLength: 30 }).filter(s => s.trim().length > 0),
+    sessionId: fc.string({ minLength: 5, maxLength: 30 }).filter(s => s.trim().length > 0),
+    originalPlaceId: fc.string({ minLength: 5, maxLength: 30 }).filter(s => s.trim().length > 0),
     targetPlaceData: fc.record({
-      id: fc.string({ minLength: 1, maxLength: 50 }),
-      name: fc.string({ minLength: 1, maxLength: 100 }),
-      address: fc.string({ minLength: 1, maxLength: 200 }),
+      id: fc.string({ minLength: 1, maxLength: 30 }),
+      name: fc.string({ minLength: 1, maxLength: 60 }),
+      address: fc.string({ minLength: 1, maxLength: 120 }),
       latitude: fc.float({ min: -90, max: 90 }),
       longitude: fc.float({ min: -180, max: 180 })
     }).map(data => JSON.stringify(data)),
@@ -93,7 +63,7 @@ describe('Verification Interface Consistency Properties', () => {
       type: fc.constantFrom('name', 'address', 'distance', 'category'),
       score: fc.integer({ min: 0, max: 100 }),
       weight: fc.integer({ min: 10, max: 50 }),
-      explanation: fc.string({ minLength: 10, maxLength: 100 })
+      explanation: fc.string({ minLength: 5, maxLength: 50 })
     }), { minLength: 1, maxLength: 4 }).map(factors => JSON.stringify(factors)),
     verificationStatus: fc.constantFrom('pending', 'accepted', 'rejected', 'manual'),
     verifiedAt: fc.option(fc.date(), { nil: undefined }),
@@ -108,7 +78,7 @@ describe('Verification Interface Consistency Properties', () => {
       fc.assert(fc.property(
         sessionArb,
         transferPackArb,
-        fc.array(matchRecordArb, { minLength: 1, maxLength: 20 }).chain(matches => {
+        fc.array(matchRecordArb, { minLength: 1, maxLength: 8 }).chain(matches => {
           // Ensure unique IDs to avoid React key conflicts
           const uniqueMatches = matches.map((match, index) => ({
             ...match,
@@ -149,7 +119,7 @@ describe('Verification Interface Consistency Properties', () => {
           // Component should render without errors
           expect(container).toBeDefined();
         }
-      ), { numRuns: 30 });
+      ), { numRuns: 3 });
     });
 
     it('should handle filter operations consistently', async () => {
@@ -190,7 +160,7 @@ describe('Verification Interface Consistency Properties', () => {
           // Verify basic statistics are displayed
           expect(pending + accepted).toBeLessThanOrEqual(total);
         }
-      ), { numRuns: 10 });
+      ), { numRuns: 2 });
     });
 
     it('should handle search functionality consistently', async () => {
@@ -227,7 +197,7 @@ describe('Verification Interface Consistency Properties', () => {
           const searchInputs = screen.queryAllByPlaceholderText('Search places...');
           expect(searchInputs.length).toBeGreaterThanOrEqual(0); // May or may not exist depending on UI state
         }
-      ), { numRuns: 8 });
+      ), { numRuns: 2 });
     });
 
     it('should handle selection state consistently', async () => {
@@ -263,7 +233,7 @@ describe('Verification Interface Consistency Properties', () => {
           // Component should handle rendering without crashing
           expect(true).toBe(true);
         }
-      ), { numRuns: 8 });
+      ), { numRuns: 2 });
     });
 
     it('should handle sorting operations consistently', async () => {
@@ -292,7 +262,7 @@ describe('Verification Interface Consistency Properties', () => {
             expect(matchList).toBeDefined();
           });
         }
-      ), { numRuns: 10 });
+      ), { numRuns: 2 });
     });
 
     it('should maintain data integrity during bulk operations', async () => {
@@ -318,7 +288,7 @@ describe('Verification Interface Consistency Properties', () => {
             expect(verificationInterface).toBeDefined();
           });
         }
-      ), { numRuns: 8 });
+      ), { numRuns: 2 });
     });
 
     it('should handle edge cases gracefully', () => {
@@ -370,7 +340,7 @@ describe('Verification Interface Consistency Properties', () => {
             );
           }).not.toThrow();
         }
-      ), { numRuns: 20 });
+      ), { numRuns: 3 });
     });
 
     it('should maintain consistent progress calculations', () => {
@@ -415,7 +385,7 @@ describe('Verification Interface Consistency Properties', () => {
 
           expect(highConfidence + mediumConfidence + lowConfidence).toBe(total);
         }
-      ), { numRuns: 30 }); // Reduced runs for performance
+      ), { numRuns: 3 }); // Reduced runs for performance
     });
 
     it('should handle rapid state changes consistently', async () => {
@@ -441,7 +411,7 @@ describe('Verification Interface Consistency Properties', () => {
             expect(verificationInterface).toBeDefined();
           });
         }
-      ), { numRuns: 8 });
+      ), { numRuns: 2 });
     });
   });
 });

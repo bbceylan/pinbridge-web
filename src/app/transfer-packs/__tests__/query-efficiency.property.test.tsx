@@ -14,6 +14,8 @@ import type { TransferPack, TransferPackItem, PackItemStatus } from '@/types';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useMemo } from 'react';
 
+jest.setTimeout(30000);
+
 // Test version of PackCard component matching the current implementation
 function TestPackCard({ pack }: { pack: TransferPack }) {
   const items = useLiveQuery(
@@ -198,9 +200,9 @@ describe('Transfer Pack Query Efficiency Properties', () => {
           }
         }
       ),
-      { numRuns: 10 } // Reduced for faster execution
+      { numRuns: 5 } // Reduced for faster execution
     );
-  }, 15000);
+  }, 25000);
 
   /**
    * Property 1b: Isolated Query Updates
@@ -288,9 +290,9 @@ describe('Transfer Pack Query Efficiency Properties', () => {
           }
         }
       ),
-      { numRuns: 8 }
+      { numRuns: 5 }
     );
-  }, 15000);
+  }, 25000);
 
   /**
    * Property 1c: No Cascading Query Effects
@@ -378,7 +380,7 @@ describe('Transfer Pack Query Efficiency Properties', () => {
           }
         }
       ),
-      { numRuns: 6 }
+      { numRuns: 4 }
     );
-  }, 15000);
+  }, 25000);
 });

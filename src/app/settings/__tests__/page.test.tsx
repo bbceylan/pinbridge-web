@@ -20,7 +20,17 @@ jest.mock('@/lib/db', () => ({
 jest.mock(
   '@radix-ui/react-switch',
   () => ({
-    Root: ({ children, ...props }: any) => <button {...props}>{children}</button>,
+    Root: ({ children, onCheckedChange, ...props }: any) => (
+      <button
+        {...props}
+        onClick={(event) => {
+          props.onClick?.(event);
+          onCheckedChange?.(true);
+        }}
+      >
+        {children}
+      </button>
+    ),
     Thumb: (props: any) => <span {...props} />,
   }),
   { virtual: true }
@@ -146,7 +156,7 @@ describe('SettingsPage (Admin Panel)', () => {
       expect(screen.getByText('Automation Status')).toBeInTheDocument();
     });
 
-    expect(screen.getByText(/Total automated sessions today/)).toBeInTheDocument();
+    expect(await screen.findByText(/Total automated sessions today/)).toBeInTheDocument();
 
     // At least three sparklines should render (icons also use SVG)
     expect(document.querySelectorAll('svg').length).toBeGreaterThanOrEqual(3);

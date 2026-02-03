@@ -30,6 +30,8 @@ const setNodeEnv = (value: string) => {
 setNodeEnv('development');
 
 describe('PaymentService', () => {
+  let errorSpy: jest.SpyInstance;
+
   beforeEach(() => {
     jest.clearAllMocks();
     localStorageMock.getItem.mockReturnValue(null);
@@ -38,6 +40,11 @@ describe('PaymentService', () => {
       ok: true,
       json: async () => ({ sessionId: 'sess_test_123', url: 'https://stripe.test/session' }),
     });
+    errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    errorSpy.mockRestore();
   });
 
   describe('getPlans', () => {
@@ -103,6 +110,7 @@ describe('PaymentService', () => {
       
       expect(result.success).toBe(true);
       expect(result.subscriptionId).toContain('demo_');
+      expect(errorSpy).toHaveBeenCalledWith('Checkout error:', expect.any(Error));
 
       // Restore original method
       paymentService.getPlan = originalGetPlan;
@@ -129,6 +137,7 @@ describe('PaymentService', () => {
       
       expect(result.success).toBe(false);
       expect(result.error).toBe('Network error');
+      expect(errorSpy).toHaveBeenCalledWith('Checkout error:', expect.any(Error));
       
       setNodeEnv('development');
       paymentService.getPlan = originalGetPlan;
@@ -158,6 +167,7 @@ describe('PaymentService', () => {
       
       expect(result.success).toBe(false);
       expect(result.error).toBe('Failed to create checkout session');
+      expect(errorSpy).toHaveBeenCalledWith('Checkout error:', expect.any(Error));
       
       setNodeEnv('development');
       paymentService.getPlan = originalGetPlan;
@@ -248,6 +258,7 @@ describe('PaymentService', () => {
       const status = paymentService.getSubscriptionStatus();
       
       expect(status.isActive).toBe(false);
+      expect(errorSpy).toHaveBeenCalledWith('Failed to get subscription status:', expect.any(Error));
     });
   });
 
@@ -267,6 +278,7 @@ describe('PaymentService', () => {
       const result = await paymentService.cancelSubscription();
       
       expect(result).toBe(false);
+      expect(errorSpy).toHaveBeenCalledWith('Cancel subscription error:', expect.any(Error));
       
       setNodeEnv('development');
     });
@@ -281,6 +293,7 @@ describe('PaymentService', () => {
       const result = await paymentService.cancelSubscription();
       
       expect(result).toBe(false);
+      expect(errorSpy).toHaveBeenCalledWith('Cancel subscription error:', expect.any(Error));
       
       setNodeEnv('development');
     });
@@ -318,6 +331,7 @@ describe('PaymentService', () => {
       const url = await paymentService.getCustomerPortalUrl();
       
       expect(url).toBeNull();
+      expect(errorSpy).toHaveBeenCalledWith('Customer portal error:', expect.any(Error));
     });
 
     it('should return portal URL on success', async () => {

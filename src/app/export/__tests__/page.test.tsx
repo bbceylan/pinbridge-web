@@ -72,6 +72,15 @@ const createTestCollection = (overrides: Partial<Collection> = {}): Collection =
   ...overrides,
 });
 
+const renderExportPage = async () => {
+  let result: ReturnType<typeof render> | undefined;
+  await act(async () => {
+    result = render(<ExportPage />);
+    await new Promise(resolve => setTimeout(resolve, 0));
+  });
+  return result!;
+};
+
 describe('Export Page Link List Integration', () => {
   describe('Enabled State with Places Available', () => {
     it('should display enabled Link List option when places exist', async () => {
@@ -80,7 +89,7 @@ describe('Export Page Link List Integration', () => {
       await db.places.add(place);
 
       // Act
-      render(<ExportPage />);
+      await renderExportPage();
 
       // Assert
       await waitFor(() => {
@@ -99,7 +108,7 @@ describe('Export Page Link List Integration', () => {
       await db.places.add(place);
 
       // Act
-      render(<ExportPage />);
+      await renderExportPage();
 
       // Assert
       await waitFor(() => {
@@ -120,7 +129,7 @@ describe('Export Page Link List Integration', () => {
       await db.places.add(place);
 
       // Act
-      render(<ExportPage />);
+      await renderExportPage();
 
       // Assert
       await waitFor(() => {
@@ -143,7 +152,7 @@ describe('Export Page Link List Integration', () => {
       await db.places.bulkAdd(places);
 
       // Act
-      render(<ExportPage />);
+      await renderExportPage();
 
       // Assert
       await waitFor(() => {
@@ -166,7 +175,7 @@ describe('Export Page Link List Integration', () => {
       });
 
       // Act
-      render(<ExportPage />);
+      await renderExportPage();
 
       // Assert
       await waitFor(() => {
@@ -182,7 +191,7 @@ describe('Export Page Link List Integration', () => {
   describe('Disabled State with No Places', () => {
     it('should disable Link List option when no places exist', async () => {
       // Act - Render with empty database
-      render(<ExportPage />);
+      await renderExportPage();
 
       // Assert
       await waitFor(() => {
@@ -193,7 +202,7 @@ describe('Export Page Link List Integration', () => {
 
     it('should show explanatory message when no places exist', async () => {
       // Act - Render with empty database
-      render(<ExportPage />);
+      await renderExportPage();
 
       // Assert
       await waitFor(() => {
@@ -207,7 +216,7 @@ describe('Export Page Link List Integration', () => {
       await db.collections.add(emptyCollection);
 
       // Act
-      render(<ExportPage />);
+      await renderExportPage();
 
       // Assert
       await waitFor(() => {
@@ -228,7 +237,7 @@ describe('Export Page Link List Integration', () => {
       const place = createTestPlace();
       await db.places.add(place);
 
-      render(<ExportPage />);
+      await renderExportPage();
 
       // Verify initially enabled
       await waitFor(() => {
@@ -242,7 +251,7 @@ describe('Export Page Link List Integration', () => {
 
       // Re-render to see updated state
       cleanup();
-      render(<ExportPage />);
+      await renderExportPage();
 
       // Assert - Should now be disabled
       await waitFor(() => {
@@ -265,7 +274,7 @@ describe('Export Page Link List Integration', () => {
       await db.places.add(place);
 
       const user = userEvent.setup();
-      render(<ExportPage />);
+      await renderExportPage();
 
       await waitFor(() => {
         expect(screen.getByRole('button', { name: /create link list/i })).not.toBeDisabled();
@@ -283,7 +292,7 @@ describe('Export Page Link List Integration', () => {
     it('should not navigate when button is disabled', async () => {
       // Arrange - No places in database
       const user = userEvent.setup();
-      render(<ExportPage />);
+      await renderExportPage();
 
       await waitFor(() => {
         const createButton = screen.getByRole('button', { name: /create link list/i });
@@ -304,7 +313,7 @@ describe('Export Page Link List Integration', () => {
       await db.places.add(place);
 
       // Act
-      render(<ExportPage />);
+      await renderExportPage();
 
       // Assert
       await waitFor(() => {
@@ -324,7 +333,7 @@ describe('Export Page Link List Integration', () => {
       await db.places.add(place);
 
       const user = userEvent.setup();
-      render(<ExportPage />);
+      await renderExportPage();
 
       await waitFor(() => {
         expect(screen.getByRole('button', { name: /create link list/i })).not.toBeDisabled();
@@ -349,7 +358,7 @@ describe('Export Page Link List Integration', () => {
       await db.places.add(place);
 
       // Act
-      render(<ExportPage />);
+      await renderExportPage();
 
       // Assert
       await waitFor(() => {
@@ -372,7 +381,7 @@ describe('Export Page Link List Integration', () => {
       await db.places.add(place);
 
       // Act
-      render(<ExportPage />);
+      await renderExportPage();
 
       // Assert
       await waitFor(() => {
@@ -390,7 +399,7 @@ describe('Export Page Link List Integration', () => {
 
     it('should disable both CSV and Link List options when no places exist', async () => {
       // Act - Render with empty database
-      render(<ExportPage />);
+      await renderExportPage();
 
       // Assert
       await waitFor(() => {
@@ -417,7 +426,7 @@ describe('Export Page Link List Integration', () => {
       });
 
       // Act
-      render(<ExportPage />);
+      await renderExportPage();
 
       // Assert
       await waitFor(() => {
@@ -442,7 +451,7 @@ describe('Export Page Link List Integration', () => {
       await db.places.add(place);
 
       // Act
-      render(<ExportPage />);
+      await renderExportPage();
 
       // Assert
       await waitFor(() => {
@@ -475,7 +484,7 @@ describe('Export Page Link List Integration', () => {
       ]);
 
       const user = userEvent.setup();
-      render(<ExportPage />);
+      await renderExportPage();
 
       // Assert initial state
       await waitFor(() => {
@@ -500,7 +509,7 @@ describe('Export Page Link List Integration', () => {
       await db.places.add(place);
 
       const user = userEvent.setup();
-      render(<ExportPage />);
+      await renderExportPage();
 
       await waitFor(() => {
         expect(screen.getByText('Entire Library (1 places)')).toBeInTheDocument();
@@ -520,7 +529,7 @@ describe('Export Page Link List Integration', () => {
   describe('Error Handling and Edge Cases', () => {
     it('should handle database loading states gracefully', async () => {
       // Act - Render before database is fully loaded
-      render(<ExportPage />);
+      await renderExportPage();
 
       // Assert - Should show initial state without crashing
       expect(screen.getByRole('heading', { name: 'Export' })).toBeInTheDocument();
@@ -539,7 +548,7 @@ describe('Export Page Link List Integration', () => {
       await db.places.add(place);
 
       const user = userEvent.setup();
-      render(<ExportPage />);
+      await renderExportPage();
 
       await waitFor(() => {
         expect(screen.getByRole('button', { name: /create link list/i })).not.toBeDisabled();
@@ -567,7 +576,7 @@ describe('Export Page Link List Integration', () => {
       await db.places.bulkAdd(placesWithMissingData);
 
       // Act
-      render(<ExportPage />);
+      await renderExportPage();
 
       // Assert - Should still enable Link List option
       await waitFor(() => {
@@ -578,7 +587,7 @@ describe('Export Page Link List Integration', () => {
 
     it('should update UI reactively when places are added or removed', async () => {
       // Arrange - Start with no places
-      render(<ExportPage />);
+      await renderExportPage();
 
       await waitFor(() => {
         expect(screen.getByRole('button', { name: /create link list/i })).toBeDisabled();
@@ -590,7 +599,7 @@ describe('Export Page Link List Integration', () => {
 
       // Re-render to simulate reactive update
       cleanup();
-      render(<ExportPage />);
+      await renderExportPage();
 
       // Assert - Should now be enabled
       await waitFor(() => {
@@ -607,7 +616,7 @@ describe('Export Page Link List Integration', () => {
       await db.places.add(place);
 
       // Act
-      render(<ExportPage />);
+      await renderExportPage();
 
       // Assert
       await waitFor(() => {
@@ -626,7 +635,7 @@ describe('Export Page Link List Integration', () => {
 
     it('should provide clear visual feedback for disabled state', async () => {
       // Act - Render with no places
-      render(<ExportPage />);
+      await renderExportPage();
 
       // Assert
       await waitFor(() => {
@@ -644,7 +653,7 @@ describe('Export Page Link List Integration', () => {
       await db.places.add(place);
 
       const user = userEvent.setup();
-      render(<ExportPage />);
+      await renderExportPage();
 
       await waitFor(() => {
         expect(screen.getByRole('button', { name: /create link list/i })).not.toBeDisabled();

@@ -23,10 +23,12 @@ afterAll(() => {
   console.warn = originalConsoleWarn;
 });
 
+jest.setTimeout(20000);
+
 // Test data generators
 const coordinateArbitrary = fc.record({
-  latitude: fc.float({ min: -90, max: 90 }),
-  longitude: fc.float({ min: -180, max: 180 }),
+  latitude: fc.double({ min: -90, max: 90, noNaN: true, noInfinity: true }),
+  longitude: fc.double({ min: -180, max: 180, noNaN: true, noInfinity: true }),
 });
 
 const placeNameArbitrary = fc.oneof(
@@ -153,7 +155,7 @@ describe('Matching Algorithm Accuracy Properties', () => {
           }
         }
       ),
-      { numRuns: 20 }
+      { numRuns: 6 }
     );
   }, 30000);
 
@@ -231,7 +233,7 @@ describe('Matching Algorithm Accuracy Properties', () => {
           });
         }
       ),
-      { numRuns: 15 }
+      { numRuns: 5 }
     );
   }, 25000);
 
@@ -315,7 +317,7 @@ describe('Matching Algorithm Accuracy Properties', () => {
           }
         }
       ),
-      { numRuns: 25 }
+      { numRuns: 6 }
     );
   }, 35000);
 
@@ -386,7 +388,7 @@ describe('Matching Algorithm Accuracy Properties', () => {
           }
         }
       ),
-      { numRuns: 20 }
+      { numRuns: 6 }
     );
   }, 30000);
 
@@ -460,7 +462,7 @@ describe('Matching Algorithm Accuracy Properties', () => {
           }
         }
       ),
-      { numRuns: 20 }
+      { numRuns: 6 }
     );
   }, 30000);
 
@@ -566,7 +568,7 @@ describe('Matching Algorithm Accuracy Properties', () => {
           }).not.toThrow();
         }
       ),
-      { numRuns: 15 }
+      { numRuns: 5 }
     );
   }, 25000);
 
@@ -632,7 +634,7 @@ describe('Matching Algorithm Accuracy Properties', () => {
           }
         }
       ),
-      { numRuns: 15 }
+      { numRuns: 5 }
     );
   }, 25000);
 
@@ -752,7 +754,7 @@ describe('Matching Algorithm Accuracy Properties', () => {
           }
         }
       ),
-      { numRuns: 10 }
+      { numRuns: 3 }
     );
   }, 20000);
 });

@@ -4,7 +4,8 @@
  * Requirements: 1.5, 4.5
  */
 
-import { render, screen, waitFor, cleanup } from '@testing-library/react';
+import type { ComponentProps } from 'react';
+import { render, screen, waitFor, cleanup, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { LinkListCreator } from '../link-list-creator';
 import { db } from '@/lib/db';
@@ -16,7 +17,18 @@ import type { Place, Collection } from '@/types';
 jest.mock('@/lib/services/link-list');
 const mockLinkListService = linkListService as jest.Mocked<typeof linkListService>;
 
-jest.setTimeout(15000);
+jest.setTimeout(25000);
+
+const renderLinkListCreator = async (
+  props: ComponentProps<typeof LinkListCreator> = {}
+) => {
+  let result: ReturnType<typeof render> | undefined;
+  await act(async () => {
+    result = render(<LinkListCreator {...props} />);
+    await new Promise(resolve => setTimeout(resolve, 0));
+  });
+  return result!;
+};
 
 // Test setup and teardown
 beforeEach(async () => {
@@ -61,9 +73,7 @@ describe('LinkListCreator Edge Cases', () => {
       const user = userEvent.setup();
       const mockOnLinkListCreated = jest.fn();
 
-      render(
-        <LinkListCreator onLinkListCreated={mockOnLinkListCreated} />
-      );
+      await renderLinkListCreator({ onLinkListCreated: mockOnLinkListCreated });
 
       // Wait for data to load
       await waitFor(() => {
@@ -102,7 +112,7 @@ describe('LinkListCreator Edge Cases', () => {
 
       await db.collections.add(emptyCollection);
 
-      render(<LinkListCreator />);
+      await renderLinkListCreator();
 
       await waitFor(() => {
         expect(screen.getByText('Empty Collection')).toBeInTheDocument();
@@ -142,7 +152,7 @@ describe('LinkListCreator Edge Cases', () => {
         collectionId: collection.id,
       });
 
-      render(<LinkListCreator />);
+      await renderLinkListCreator();
 
       // Initially should show 1 place
       await waitFor(() => {
@@ -156,7 +166,7 @@ describe('LinkListCreator Edge Cases', () => {
 
       // Re-render to see updated state
       cleanup();
-      render(<LinkListCreator />);
+      await renderLinkListCreator();
 
       await waitFor(() => {
         expect(screen.getByText('Soon Empty Collection')).toBeInTheDocument();
@@ -188,9 +198,7 @@ describe('LinkListCreator Edge Cases', () => {
       const user = userEvent.setup();
       const mockOnLinkListCreated = jest.fn();
 
-      render(
-        <LinkListCreator onLinkListCreated={mockOnLinkListCreated} />
-      );
+      await renderLinkListCreator({ onLinkListCreated: mockOnLinkListCreated });
 
       await waitFor(() => {
         expect(screen.getByText('Unselected Place')).toBeInTheDocument();
@@ -277,7 +285,7 @@ describe('LinkListCreator Edge Cases', () => {
       await db.places.add(place);
 
       const user = userEvent.setup();
-      render(<LinkListCreator />);
+      await renderLinkListCreator();
 
       await waitFor(() => {
         expect(screen.getByText('Test Place')).toBeInTheDocument();
@@ -302,7 +310,7 @@ describe('LinkListCreator Edge Cases', () => {
   describe('Boundary Conditions', () => {
     it('should handle database loading states gracefully', async () => {
       // Render before database is populated
-      render(<LinkListCreator />);
+      await renderLinkListCreator();
 
       // Should show loading state or empty state gracefully
       expect(screen.getByText('Link List Details')).toBeInTheDocument();
@@ -364,7 +372,7 @@ describe('LinkListCreator Edge Cases', () => {
 
       await db.places.bulkAdd(placesWithEdgeCases);
 
-      render(<LinkListCreator />);
+      await renderLinkListCreator();
 
       // Should render all places even with missing data
       await waitFor(() => {
@@ -462,10 +470,9 @@ describe('LinkListCreator Edge Cases', () => {
 
       const user = userEvent.setup();
       const mockOnLinkListCreated = jest.fn();
+      const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
 
-      render(
-        <LinkListCreator onLinkListCreated={mockOnLinkListCreated} />
-      );
+      await renderLinkListCreator({ onLinkListCreated: mockOnLinkListCreated });
 
       await waitFor(() => {
         expect(screen.getByText('Test Place')).toBeInTheDocument();
@@ -485,6 +492,10 @@ describe('LinkListCreator Edge Cases', () => {
       // Should show error message
       await waitFor(() => {
         expect(screen.getByText(/failed to create link list/i)).toBeInTheDocument();
+        expect(errorSpy).toHaveBeenCalledWith(
+          'Failed to create link list:',
+          expect.any(Error)
+        );
       });
 
       // Should not call success callback
@@ -492,6 +503,8 @@ describe('LinkListCreator Edge Cases', () => {
 
       // Button should be enabled again for retry
       expect(createButton).not.toBeDisabled();
+
+      errorSpy.mockRestore();
     });
 
     it('should handle rapid selection/deselection without errors', async () => {
@@ -513,7 +526,7 @@ describe('LinkListCreator Edge Cases', () => {
       await db.places.bulkAdd(places);
 
       const user = userEvent.setup();
-      render(<LinkListCreator />);
+      await renderLinkListCreator();
 
       await waitFor(() => {
         expect(screen.getByText('Place 1')).toBeInTheDocument();

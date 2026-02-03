@@ -16,6 +16,8 @@ import { LinkListCreator } from '@/components/shared/link-list-creator';
 import ExportPage from '../../export/page';
 import type { Place, Collection, LinkList } from '@/types';
 
+jest.setTimeout(20000);
+
 // Mock Next.js router and search params
 jest.mock('next/navigation', () => ({
   useRouter: jest.fn(),
@@ -322,6 +324,7 @@ describe('Link List Feature Integration Tests', () => {
       jest.spyOn(linkListService, 'createLinkList').mockRejectedValueOnce(
         new Error('Network error')
       );
+      const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
 
       const user = userEvent.setup();
       render(<LinkListCreator />);
@@ -337,10 +340,16 @@ describe('Link List Feature Integration Tests', () => {
       // Should show error message
       await waitFor(() => {
         expect(screen.getByText(/failed to create link list/i)).toBeInTheDocument();
+        expect(errorSpy).toHaveBeenCalledWith(
+          'Failed to create link list:',
+          expect.any(Error)
+        );
       });
 
       // Button should be enabled for retry
       expect(screen.getByRole('button', { name: /create link list/i })).not.toBeDisabled();
+
+      errorSpy.mockRestore();
     });
 
     it('should handle database connection issues', async () => {

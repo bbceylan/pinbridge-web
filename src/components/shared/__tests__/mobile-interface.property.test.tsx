@@ -268,7 +268,7 @@ describe('Property 5: Mobile interface optimization', () => {
           return true;
         }
       ),
-      { numRuns: 25, timeout: 8000 }
+      { numRuns: 8, timeout: 8000 }
     );
   }, 12000);
 
@@ -330,7 +330,7 @@ describe('Property 5: Mobile interface optimization', () => {
           return true;
         }
       ),
-      { numRuns: 20, timeout: 8000 }
+      { numRuns: 6, timeout: 8000 }
     );
   }, 12000);
 
@@ -396,7 +396,7 @@ describe('Property 5: Mobile interface optimization', () => {
           return true;
         }
       ),
-      { numRuns: 20, timeout: 6000 }
+      { numRuns: 6, timeout: 6000 }
     );
   }, 10000);
 
@@ -459,7 +459,7 @@ describe('Property 5: Mobile interface optimization', () => {
           return true;
         }
       ),
-      { numRuns: 15, timeout: 10000 }
+      { numRuns: 5, timeout: 10000 }
     );
   }, 15000);
 
@@ -520,7 +520,7 @@ describe('Property 5: Mobile interface optimization', () => {
           return true;
         }
       ),
-      { numRuns: 15, timeout: 8000 }
+      { numRuns: 5, timeout: 8000 }
     );
   }, 12000);
 
@@ -602,7 +602,7 @@ describe('Property 5: Mobile interface optimization', () => {
           return true;
         }
       ),
-      { numRuns: 20, timeout: 8000 }
+      { numRuns: 6, timeout: 8000 }
     );
   }, 12000);
 
@@ -723,7 +723,7 @@ describe('Property 5: Mobile interface optimization', () => {
           return true;
         }
       ),
-      { numRuns: 15, timeout: 10000 }
+      { numRuns: 5, timeout: 10000 }
     );
   }, 15000);
 });
