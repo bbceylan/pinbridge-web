@@ -6,12 +6,19 @@
 import { db } from './index';
 import type { TransferPack, TransferPackSession } from '@/types';
 
+const isTest = process.env.NODE_ENV === 'test';
+const info = (...args: Parameters<typeof console.log>) => {
+  if (!isTest) {
+    console.log(...args);
+  }
+};
+
 /**
  * Migration for version 4: Create transfer pack sessions for existing transfer packs
  * This ensures existing transfer packs can work with the new automated transfer system
  */
 export async function migrateExistingTransferPacks(): Promise<void> {
-  console.log('Starting migration of existing transfer packs...');
+  info('Starting migration of existing transfer packs...');
   
   try {
     // Get all existing transfer packs that don't have sessions
@@ -24,11 +31,11 @@ export async function migrateExistingTransferPacks(): Promise<void> {
     );
     
     if (packsNeedingSessions.length === 0) {
-      console.log('No transfer packs need migration');
+      info('No transfer packs need migration');
       return;
     }
     
-    console.log(`Migrating ${packsNeedingSessions.length} transfer packs...`);
+    info(`Migrating ${packsNeedingSessions.length} transfer packs...`);
     
     // Create sessions for existing packs
     const sessionsToCreate: TransferPackSession[] = [];
@@ -73,7 +80,7 @@ export async function migrateExistingTransferPacks(): Promise<void> {
     // Bulk insert the new sessions
     await db.transferPackSessions.bulkAdd(sessionsToCreate);
     
-    console.log(`Successfully migrated ${sessionsToCreate.length} transfer pack sessions`);
+    info(`Successfully migrated ${sessionsToCreate.length} transfer pack sessions`);
     
   } catch (error) {
     console.error('Error during transfer pack migration:', error);
@@ -85,7 +92,7 @@ export async function migrateExistingTransferPacks(): Promise<void> {
  * Clean up orphaned records that may exist due to incomplete operations
  */
 export async function cleanupOrphanedRecords(): Promise<void> {
-  console.log('Cleaning up orphaned records...');
+  info('Cleaning up orphaned records...');
   
   try {
     // Clean up place match records without valid sessions
@@ -102,7 +109,7 @@ export async function cleanupOrphanedRecords(): Promise<void> {
       await db.placeMatchRecords.bulkDelete(
         orphanedMatchRecords.map(r => r.id)
       );
-      console.log(`Cleaned up ${orphanedMatchRecords.length} orphaned match records`);
+      info(`Cleaned up ${orphanedMatchRecords.length} orphaned match records`);
     }
     
     // Clean up API usage logs without valid sessions (keep logs without sessionId)
@@ -115,10 +122,10 @@ export async function cleanupOrphanedRecords(): Promise<void> {
       await db.apiUsageLog.bulkDelete(
         orphanedApiLogs.map(l => l.id)
       );
-      console.log(`Cleaned up ${orphanedApiLogs.length} orphaned API logs`);
+      info(`Cleaned up ${orphanedApiLogs.length} orphaned API logs`);
     }
     
-    console.log('Cleanup completed successfully');
+    info('Cleanup completed successfully');
     
   } catch (error) {
     console.error('Error during cleanup:', error);
@@ -130,12 +137,12 @@ export async function cleanupOrphanedRecords(): Promise<void> {
  * Run all necessary migrations for the current database version
  */
 export async function runMigrations(): Promise<void> {
-  console.log('Running database migrations...');
+  info('Running database migrations...');
   
   try {
     await migrateExistingTransferPacks();
     await cleanupOrphanedRecords();
-    console.log('All migrations completed successfully');
+    info('All migrations completed successfully');
   } catch (error) {
     console.error('Migration failed:', error);
     throw error;

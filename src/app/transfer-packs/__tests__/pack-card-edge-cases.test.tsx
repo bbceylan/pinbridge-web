@@ -116,7 +116,7 @@ jest.mock('next/link', () => {
 // Mock the utils
 jest.mock('@/lib/utils/index', () => ({
   cn: (...classes: string[]) => classes.filter(Boolean).join(' '),
-  formatDateTime: (date: Date) => date.toLocaleDateString(),
+  formatDateTime: (date: Date) => date.toISOString().slice(0, 10),
 }));
 
 // Mock window.confirm for delete tests
@@ -787,7 +787,7 @@ describe('PackCard Edge Cases Unit Tests', () => {
         const lastUpdated = getByTestId('last-updated');
         expect(lastUpdated).toHaveTextContent('Last updated');
         // The exact format depends on formatDateTime mock, but should contain the date
-        expect(lastUpdated.textContent).toContain('1/15/2024');
+        expect(lastUpdated.textContent).toContain('2024-01-15');
       });
     });
   });

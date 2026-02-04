@@ -11,20 +11,27 @@ import { runMigrations, validateDatabaseIntegrity } from './migrations';
  * This should be called when the application starts
  */
 export async function initializeDatabase(): Promise<void> {
+  const isTest = process.env.NODE_ENV === 'test';
+  const info = (...args: Parameters<typeof console.log>) => {
+    if (!isTest) {
+      console.log(...args);
+    }
+  };
+
   try {
-    console.log('Initializing PinBridge database...');
+    info('Initializing PinBridge database...');
     
     // Open the database (this will trigger Dexie version upgrades)
     await db.open();
     
-    console.log(`Database opened successfully. Version: ${db.verno}`);
+    info(`Database opened successfully. Version: ${db.verno}`);
     
     // Check if we need to run migrations for version 4
     if (db.verno >= 4) {
       const needsMigration = await checkIfMigrationNeeded();
       
       if (needsMigration) {
-        console.log('Running migrations for automated transfer features...');
+        info('Running migrations for automated transfer features...');
         await runMigrations();
         
         // Validate the migration was successful
@@ -33,10 +40,10 @@ export async function initializeDatabase(): Promise<void> {
           console.warn('Database validation found issues:', validation.issues);
           // Don't throw here - log the issues but allow the app to continue
         } else {
-          console.log('Database migration and validation completed successfully');
+          info('Database migration and validation completed successfully');
         }
       } else {
-        console.log('No migrations needed');
+        info('No migrations needed');
       }
     }
     

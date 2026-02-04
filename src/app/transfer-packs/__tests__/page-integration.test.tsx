@@ -89,7 +89,6 @@ function TestPackCard({ pack }: { pack: TransferPack }) {
     e.preventDefault();
     if (confirm('Delete this transfer pack?')) {
       // Mock delete functionality
-      console.log(`Deleting pack ${pack.id}`);
     }
   };
 
@@ -239,8 +238,7 @@ describe('Transfer Packs Page Integration Tests', () => {
       await db.transferPacks.add(pack);
 
       // Verify data was inserted
-      const insertedPacks = await db.transferPacks.toArray();
-      console.log('Inserted packs:', insertedPacks);
+      await db.transferPacks.toArray();
 
       // Act: Render test page
       const { container } = render(<TestTransferPacksPage />);
@@ -250,7 +248,6 @@ describe('Transfer Packs Page Integration Tests', () => {
         expect(screen.getByText('Debug Pack')).toBeInTheDocument();
       }, { timeout: 2000 });
 
-      console.log('Success! Pack rendered correctly');
     });
   });
 

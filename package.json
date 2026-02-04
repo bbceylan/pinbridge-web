@@ -8,8 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "type-check": "tsc --noEmit",
-    "test": "jest",
-    "test:watch": "jest --watch"
+    "test": "NODE_OPTIONS=--localstorage-file=/tmp/pinbridge-web-localstorage jest",
+    "test:watch": "NODE_OPTIONS=--localstorage-file=/tmp/pinbridge-web-localstorage jest --watch"
   },
   "dependencies": {
     "@radix-ui/react-alert-dialog": "^1.1.15",
